@@ -577,7 +577,7 @@ public class DLNACtrl {
 
 		MySubscriptionCallback callback;
 		callback = new MySubscriptionCallback(theScreen, 10);
-		//		upnpService.getControlPoint().execute(callback);
+		upnpService.getControlPoint().execute(callback);
 
 		String uri = sendURIandPlay(theScreen, item);
 		if(!currentJob.hasStatus("sendPlay")){
@@ -606,8 +606,8 @@ public class DLNACtrl {
 			} catch (InterruptedException e) {}
 
 			if(currentJob.hasStatus("screen restarted")){
-				sendURIandPlay(theScreen, item);
 				Main.jlog.log(Level.INFO, "Resend URI after screen restart " + currentJob.getRest() + " seconds media=" + uri);
+				return;
 			}
 			switch (callback.theState) {
 			case PLAYING :
