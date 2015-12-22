@@ -77,7 +77,7 @@ public class DLNACtrl {
 
 		// UPnP discovery is asynchronous, we need a callback
 		RegistryListener listener = new DLNAListener(this);
-
+		Main.jlog.setLevel( Level.WARNING );
 
 		// This will create necessary network resources for UPnP right away
 		Main.jlog.log(Level.INFO, "Starting Cling...version: " + version);
