@@ -124,44 +124,26 @@ public class PlayJob{
 	public void setPictTime(int pictTime) {
 		this.pictTime = pictTime;
 	}
-
-	public Item getItemFromServer(Service server, ControlPoint cp){
-//		Service theSource, final String from, final int no){
-	final AtomicReference<Item> res = new AtomicReference<Item>();
-
-	ActionCallback doBrowseAction  = new Browse(server, getPlaylist(), BrowseFlag.DIRECT_CHILDREN, "*", getItem(), new Long(1), (SortCriterion[])null) {
-    	
-		@Override
-		public void received(ActionInvocation actionInvocation, DIDLContent didl) {
-			List<Item> items = didl.getItems();
-			res.set(items.get(0));
-		}
-
-		@Override
-		public void updateStatus(Status status) {
-		}
-
-		@Override
-		public void failure(ActionInvocation invocation,
-				UpnpResponse operation,
-				String defaultMsg) {
-			// Something wasn't right...
-		}
-	};
-	Future<String> f = cp.execute(doBrowseAction);
 	
-	try {
-		f.get();
-	} catch (InterruptedException e) {
-		// TODO Auto-generated catch block
-		e.printStackTrace();
-	} catch (ExecutionException e) {
-		// TODO Auto-generated catch block
-		e.printStackTrace();
+	public boolean checkJob(){
+		if(getServer() == null ){
+			Main.jlog.log(Level.WARNING, "No source defined!");
+			return false;
+		}
+		if(getScreen() == null ){
+			Main.jlog.log(Level.WARNING, "No renderer defined!");
+			return false;
+		}
+		if(getPlaylist() == null ){
+			Main.jlog.log(Level.WARNING, "Empty playlist!");
+			return false;
+		}
+		
+		return true;			
 	}
 	
-	return res.get();
-}
+
+
 
 
 }	

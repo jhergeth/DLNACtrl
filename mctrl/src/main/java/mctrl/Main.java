@@ -11,7 +11,7 @@ import java.util.logging.Logger;
 public class Main {
 
 	final public static String version = "0.2.1";
-	static DLNACtrl dlnaCtrl = null;
+	static DLNAPrinter dlnaPrinter = null;
 	static Future<?> fMain;
 	public static Logger jlog =  Logger.getLogger("name.hergeth.upnp");
 
@@ -31,9 +31,9 @@ public class Main {
     public static void main(final String[] args) throws Exception {
     	executor = Executors.newFixedThreadPool(1);
     	Future<?> f = executor.submit(() -> {
-        	dlnaCtrl = new DLNACtrl();
+        	dlnaPrinter = new DLNAPrinter();
         	try {
-        		dlnaCtrl.runIt(args);
+        		dlnaPrinter.runIt(args);
 
                 // Let's wait 10 seconds for them to respond
                 jlog.log(Level.INFO, "Waiting 10 seconds before shutting down...");
@@ -42,15 +42,15 @@ public class Main {
         		} catch (InterruptedException e) {
         		}
 
-                dlnaCtrl.searchUDAServiceType("ContentDirectory");
-                dlnaCtrl.searchUDAServiceType("AVTransport");
+                dlnaPrinter.searchUDAServiceType("ContentDirectory");
+                dlnaPrinter.searchUDAServiceType("AVTransport");
 
-        		dlnaCtrl.waitForRenderer();
+        		dlnaPrinter.waitForRenderer();
 
         		for( int i = 0; i < 100; i++ )
-        			dlnaCtrl.renderPlaylist();
+        			dlnaPrinter.renderPlaylist();
                 
-        		dlnaCtrl.shutDown();
+        		dlnaPrinter.shutDown();
         		shutDown();
         		
     		}catch( org.fourthline.cling.transport.RouterException re){
@@ -89,9 +89,9 @@ public class Main {
     	try {
         	executor = Executors.newFixedThreadPool(1);
         	fMain = executor.submit(() -> {
-            	dlnaCtrl = new DLNACtrl();
+            	dlnaPrinter = new DLNAPrinter();
             	try {
-        			dlnaCtrl.runIt(args);
+        			dlnaPrinter.runIt(args);
         		}catch( org.fourthline.cling.transport.RouterException re){
             	    jlog.log(Level.SEVERE, "RouterException...");
         		}
@@ -114,7 +114,7 @@ public class Main {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-    	return dlnaCtrl;
+    	return dlnaPrinter;
     }
     
 	public static void shutDown() {

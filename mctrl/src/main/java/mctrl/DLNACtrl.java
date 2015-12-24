@@ -2,7 +2,6 @@ package mctrl;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
@@ -14,60 +13,53 @@ import org.fourthline.cling.UpnpServiceImpl;
 import org.fourthline.cling.controlpoint.ActionCallback;
 import org.fourthline.cling.controlpoint.ControlPoint;
 import org.fourthline.cling.controlpoint.SubscriptionCallback;
-import org.fourthline.cling.model.action.ActionArgumentValue;
 import org.fourthline.cling.model.action.ActionInvocation;
-import org.fourthline.cling.model.gena.CancelReason;
-import org.fourthline.cling.model.gena.GENASubscription;
 import org.fourthline.cling.model.message.UpnpResponse;
 import org.fourthline.cling.model.message.header.STAllHeader;
 import org.fourthline.cling.model.message.header.UDAServiceTypeHeader;
-import org.fourthline.cling.model.meta.Action;
-import org.fourthline.cling.model.meta.ActionArgument;
 import org.fourthline.cling.model.meta.Device;
-import org.fourthline.cling.model.meta.DeviceDetails;
-import org.fourthline.cling.model.meta.RemoteDevice;
-import org.fourthline.cling.model.meta.RemoteDeviceIdentity;
-import org.fourthline.cling.model.meta.RemoteService;
 import org.fourthline.cling.model.meta.Service;
-import org.fourthline.cling.model.state.StateVariableValue;
-import org.fourthline.cling.model.types.UDAServiceId;
 import org.fourthline.cling.model.types.UDAServiceType;
 import org.fourthline.cling.model.types.UDN;
 import org.fourthline.cling.registry.Registry;
 import org.fourthline.cling.registry.RegistryListener;
 import org.fourthline.cling.support.avtransport.callback.Play;
 import org.fourthline.cling.support.avtransport.callback.SetAVTransportURI;
-import org.fourthline.cling.support.avtransport.lastchange.AVTransportLastChangeParser;
-import org.fourthline.cling.support.avtransport.lastchange.AVTransportVariable;
 import org.fourthline.cling.support.contentdirectory.callback.Browse;
-import org.fourthline.cling.support.lastchange.LastChange;
+import org.fourthline.cling.support.contentdirectory.callback.Browse.Status;
 import org.fourthline.cling.support.model.BrowseFlag;
 import org.fourthline.cling.support.model.DIDLContent;
-import org.fourthline.cling.support.model.DIDLObject;
 import org.fourthline.cling.support.model.SortCriterion;
-import org.fourthline.cling.support.model.TransportState;
 import org.fourthline.cling.support.model.container.Container;
-import org.fourthline.cling.support.model.item.ImageItem;
 import org.fourthline.cling.support.model.item.Item;
-import org.fourthline.cling.support.model.item.VideoItem;
 
 public class DLNACtrl {
-	final public static String version = "0.2.8";
 
-	
+	public static final String version = "0.2.10";
+	protected static UpnpService upnpService = null;
+
 	final long PICTIME = 30*1000;
-
-
 	public PlayJob currentJob;
 	public PlayJob newJob = null;
-
-	UpnpService upnpService = null;
-	Registry registry = null; 
+	Registry registry = null;
 	UDAServiceType typeContent = null;
 	UDAServiceType typeRenderer = null;
 
-	public DLNACtrl(){
+	public DLNACtrl() {
+		super();
 	}
+
+	/**
+	 * Static methods
+	 * @return
+	 */
+	public static <T> Future<T> execAction( ActionCallback cb){
+		 return upnpService.getControlPoint().execute(cb);
+}
+
+	public static void execAction( SubscriptionCallback cb){
+		 upnpService.getControlPoint().execute(cb);
+}
 
 	/**
 	 * @param args
@@ -77,7 +69,7 @@ public class DLNACtrl {
 
 		// UPnP discovery is asynchronous, we need a callback
 		RegistryListener listener = new DLNAListener(this);
-		Main.jlog.setLevel( Level.WARNING );
+		Main.jlog.setLevel( Level.INFO );
 
 		// This will create necessary network resources for UPnP right away
 		Main.jlog.log(Level.INFO, "Starting Cling...version: " + version);
@@ -85,6 +77,8 @@ public class DLNACtrl {
 		registry = upnpService.getRegistry();
 
 		Main.jlog.log(Level.INFO, "Waiting 1 second...");
+
+
 		try {
 			Thread.sleep(1000);
 		} catch (InterruptedException e) {
@@ -104,7 +98,7 @@ public class DLNACtrl {
 		upnpService.shutdown();
 	}
 
-	public long timeToLong(String s){
+	public long timeToLong(String s) {
 		long result = 0;
 		String[] parts = s.split("[:.]");
 		result += Long.parseLong(parts[0]);
@@ -116,11 +110,6 @@ public class DLNACtrl {
 		result += Long.parseLong(parts[3]);
 		return result;
 	}
-
-
-	/**
-	 * Functions to be used from JavaScript
-	 */
 
 	/**
 	 * search UDAServiceType
@@ -164,7 +153,7 @@ public class DLNACtrl {
 	 * @param t		UDAServiceType of devices 
 	 * @return	array of Devices
 	 */
-	public Device[] getDevices(final String t){
+	public Device[] getDevices(final String t) {
 		if( upnpService != null ){
 			Collection<Device> devs = registry.getDevices(new UDAServiceType(t));
 			Main.jlog.log(Level.INFO, "getDevices: found " + devs.size() + " devices.");
@@ -184,25 +173,12 @@ public class DLNACtrl {
 	}
 
 	/**
-	 * getDevice(String dev, String type)
-	 * Get Device of type type with name dev
-	 */
-	public Device getDevice(final String dev, final String typ){
-		Device[] devs = getDevices(typ);
-		for( Device d : devs){
-			if(d.getDetails().getFriendlyName().equalsIgnoreCase(dev))
-				return d;
-		}
-		return null;
-	}
-
-	/**
 	 * getDeviceNames( String t )
 	 * Gets the names of all devices of a specific service type (t).
 	 * @param t		Service type of the devices
 	 * @return String[]	array of Devicenames 
 	 */
-	public String[] getDeviceNames(final String t){
+	public String[] getDeviceNames(final String t) {
 		Device[] devs = getDevices(t);
 		String[] res = new String[1];
 
@@ -229,7 +205,7 @@ public class DLNACtrl {
 	 * Returns a String array of all found UPNP Server names
 	 * @return String[]
 	 */
-	public String[] getServerArray(){
+	public String[] getServerArray() {
 		return getDeviceNames("ContentDirectory");
 	}
 
@@ -238,12 +214,31 @@ public class DLNACtrl {
 	 * Returns an array of the names of all known renderer.
 	 * @return String[]
 	 */
-	public String[] getRendererArray(){
+	public String[] getRendererArray() {
 		return getDeviceNames("AVTransport");
 	}
 
+	public Service findRenderer(String sDevice) {
+		return findService(sDevice, typeRenderer);
+	}
 
-	public String[] devBrowseItem(final String devName, final String from ){
+	public Service findVault(String sDevice) {
+		return findService(sDevice, typeContent);
+	}
+
+	public Service findService(String sDevice, UDAServiceType type) {
+		Collection<Device> devs = registry.getDevices(type);
+		for( Device dev : devs){
+			Main.jlog.log(Level.INFO, "Checking " + dev.getDetails().getFriendlyName() + " to be " + sDevice);
+			if( dev.getDetails().getFriendlyName().equalsIgnoreCase(sDevice)){
+				return dev.findService(type);
+
+			}
+		}
+		return null;
+	}
+
+	public String[] devBrowseItem(final String devName, final String from) {
 		Device server = registry.getDevice(new UDN(devName), false) ;
 		DirContent dirc = getDirContent(server, from);
 		String[] s = new String[1];
@@ -251,8 +246,7 @@ public class DLNACtrl {
 		return dirc.items.toArray(s);
 	}
 
-
-	public String[] devBrowseDir(final String devName, final String from ){
+	public String[] devBrowseDir(final String devName, final String from) {
 		Device server = registry.getDevice(new UDN(devName), false) ;
 		DirContent dirc = getDirContent(server, from);
 		String[] s = new String[1];
@@ -273,7 +267,7 @@ public class DLNACtrl {
 		}
 	}
 
-	public DirContent browseTo(Service s, final String from){
+	public DirContent browseTo(Service s, final String from) {
 		final AtomicReference<DirContent> res = new AtomicReference<DirContent>();
 
 		doBrowse(s, from, (ActionInvocation actionInvocation, DIDLContent didl) -> {
@@ -286,9 +280,9 @@ public class DLNACtrl {
 			Main.jlog.log(Level.INFO, "browseTo: res="+ ret.id);
 		return ret;
 
-	}    
+	}
 
-	private DirContent browseTo(Service s, final String from, final String to){
+	private DirContent browseTo(Service s, final String from, final String to) {
 		final AtomicReference<DirContent> res = new AtomicReference<DirContent>();
 
 		doBrowse(s, from, (ActionInvocation actionInvocation, DIDLContent didl) -> {
@@ -305,10 +299,26 @@ public class DLNACtrl {
 			Main.jlog.log(Level.INFO, "browseTo: res="+ ret.id);
 		return ret;
 
-	}    
+	}
 
-	private void doBrowse(Service s, String from,
-			BiConsumer<ActionInvocation, DIDLContent> func) {
+	public int getDirSize(PlayJob job) {
+		if(job.checkJob())
+			return getDirSize(findVault(job.getServer()), job.getPlaylist());
+		return 0;
+	}
+
+	public int getDirSize(Service theSource, final String from) {
+		final AtomicReference<Integer> res = new AtomicReference<Integer>();
+
+		doBrowse(theSource, from, (ActionInvocation actionInvocation, DIDLContent didl) -> {
+			List<Item> items = didl.getItems();
+			res.set(items.size());
+		});
+
+		return res.get();
+	}
+
+	protected void doBrowse(Service s, String from, BiConsumer<ActionInvocation, DIDLContent> func) {
 
 		ActionCallback doBrowseAction  = new Browse(s, from, BrowseFlag.DIRECT_CHILDREN) {
 			@Override
@@ -345,118 +355,70 @@ public class DLNACtrl {
 		return;
 	}
 
+	public Item getItemFromServer(Service server) {
+		//		Service theSource, final String from, final int no){
+		final AtomicReference<Item> res = new AtomicReference<Item>();
 
-	public int getDirSize(PlayJob job){
-		if(checkJob(job))
-			return getDirSize(getServerDev(job), job.getPlaylist());
-		return 0;
-	}
+		ActionCallback doBrowseAction  = new Browse(server, currentJob.getPlaylist(), BrowseFlag.DIRECT_CHILDREN, 
+				"*", currentJob.getItem(), new Long(1), (SortCriterion[])null) {
 
-	public int getDirSize(Service theSource, final String from){
-		final AtomicReference<Integer> res = new AtomicReference<Integer>();
+			@Override
+			public void received(ActionInvocation actionInvocation, DIDLContent didl) {
+				List<Item> items = didl.getItems();
+				res.set(items.get(0));
+			}
 
-		doBrowse(theSource, from, (ActionInvocation actionInvocation, DIDLContent didl) -> {
-			List<Item> items = didl.getItems();
-			res.set(items.size());
-		});
+			@Override
+			public void updateStatus(Status status) {
+			}
+
+			@Override
+			public void failure(ActionInvocation invocation,
+					UpnpResponse operation,
+					String defaultMsg) {
+				// Something wasn't right...
+			}
+		};
+		Future<String> f = upnpService.getControlPoint().execute(doBrowseAction);
+
+		try {
+			f.get();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (ExecutionException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
 		return res.get();
 	}
 
-
-	public Service findRenderer(String sDevice) {
-		return findService(sDevice, typeRenderer);
-	}
-
-	public Service findScreen(String sDevice) {
-		return findService(sDevice, typeContent);
-	}
-
-	public Service findService(String sDevice, UDAServiceType type) {
-		Collection<Device> devs = registry.getDevices(type);
-		for( Device dev : devs){
-			Main.jlog.log(Level.INFO, "Checking " + dev.getDetails().getFriendlyName() + " to be " + sDevice);
-			if( dev.getDetails().getFriendlyName().equalsIgnoreCase(sDevice)){
-				return dev.findService(type);
-
-			}
-		}
-		return null;
-	}
-
-
-	public Service getScreenDev(PlayJob job) {
-		Collection<Device> devs = registry.getDevices(typeRenderer);
-		for( Device dev : devs){
-			Main.jlog.log(Level.INFO, "Checking " + dev.getDetails().getFriendlyName() + " to be " + job.getScreen());
-			if( dev.getDetails().getFriendlyName().equalsIgnoreCase(job.getScreen())){
-				return dev.findService(typeRenderer);
-
-			}
-		}
-		return null;
-	}
-
-	public Service getServerDev(PlayJob job) {
-		Collection<Device> devs = registry.getDevices(typeContent);
-		for( Device dev : devs){
-			Main.jlog.log(Level.INFO, "Checking " + dev.getDetails().getFriendlyName() + " to be " + job.getServer());
-			if( dev.getDetails().getFriendlyName().equalsIgnoreCase(job.getServer())){
-				return dev.findService(typeContent);
-
-			}
-		}
-		return null;
-	}
-
-	
-	public boolean checkJob(PlayJob job){
-		Service	theSource = findService(job.getServer(), typeContent);
-		if(theSource == null ){
-			Main.jlog.log(Level.WARNING, "No source defined! {" + job.getServer() +"}");
-			return false;
-		}
-		Service theScreen = findService(job.getScreen(), typeRenderer);
-		if(theScreen == null ){
-			Main.jlog.log(Level.WARNING, "No renderer defined! {" + job.getScreen() +"}");
-			return false;
-		}
-		Item item = job.getItemFromServer(theSource, upnpService.getControlPoint());
-		if(item == null ){
-			Main.jlog.log(Level.WARNING, "Empty playlist! {" + job.getPlaylist() +"}");
-			return false;
-		}
-		
-		return true;			
-	}
-	
-	
-
-	public void jumpForward(){
-		if(checkJob(currentJob) && !currentJob.getStatus().equalsIgnoreCase("idle")){
+	public void jumpForward() {
+		if(currentJob.checkJob() && !currentJob.getStatus().equalsIgnoreCase("idle")){
 			currentJob.jumpForward();
 		}
 	}
 
-	public void jumpBack(){
-		if(checkJob(currentJob) && !currentJob.getStatus().equalsIgnoreCase("idle")){
+	public void jumpBack() {
+		if(currentJob.checkJob() && !currentJob.getStatus().equalsIgnoreCase("idle")){
 			currentJob.jumpBack();
 		}
 	}
 
-	public void stop(){
-		if(checkJob(currentJob) && !currentJob.getStatus().equalsIgnoreCase("idle")){
+	public void stop() {
+		if(currentJob.checkJob() && !currentJob.getStatus().equalsIgnoreCase("idle")){
 			currentJob.setRest(Integer.MAX_VALUE);
 		}
 	}
 
-	public void play(){
-		if(checkJob(currentJob) && !currentJob.getStatus().equalsIgnoreCase("idle")){
+	public void play() {
+		if(currentJob.checkJob() && !currentJob.getStatus().equalsIgnoreCase("idle")){
 			currentJob.setRest(currentJob.getTotal());
 		}
 	}
 
-	public PlayJob getStatus(){
+	public PlayJob getStatus() {
 		return currentJob;
 	}
 
@@ -467,16 +429,16 @@ public class DLNACtrl {
 	 * @param theId
 	 * @param duration
 	 */
-	public void play(String sRenderer, String sDir, String theId, int duration){
+	public void play(String sRenderer, String sDir, String theId, int duration) {
 		play( new PlayJob("starting", theId, sRenderer, sDir, 0, duration, duration, duration ), duration);
 	}
 
-	public void play(PlayJob job,  int duration){
+	public void play(PlayJob job, int duration) {
 		ControlPoint ctrlPoint = upnpService.getControlPoint();
 
 		Main.jlog.log(Level.INFO, "Play " + job.getPlaylist() + " from " + job.getServer() + " to " + job.getScreen());
 
-		if(!checkJob(job)){
+		if(!job.checkJob()){
 			return;
 		}
 
@@ -488,11 +450,11 @@ public class DLNACtrl {
 		while(currentJob.hasStatus("idle")){
 			currentJob = job;
 			Main.jlog.log(Level.INFO, "Starting rendering of playlist " + currentJob.getPlaylist());
-			
+
 			for( int m = 0; m < getDirSize(job); m++){				// for all items in playlist
 				currentJob.setItem(m);
-				
-				Service theScreen = getScreenDev(currentJob);		// find a renderer
+
+				Service theScreen = findRenderer(currentJob.getScreen());		// find a renderer
 				if(theScreen == null){
 					Main.jlog.log(Level.WARNING, "No rendering service found!");
 					currentJob.setStatus("renderer mising");
@@ -500,7 +462,7 @@ public class DLNACtrl {
 					int cnt = 0;
 					do{
 						if(cnt%12 == 0){
-						// Broadcast a search message for all devices
+							// Broadcast a search message for all devices
 							ctrlPoint.search(new STAllHeader());
 						}
 						try {
@@ -508,7 +470,7 @@ public class DLNACtrl {
 							Thread.sleep(5000);
 						} catch (InterruptedException e) {
 						}
-						theScreen = getScreenDev(currentJob);
+						theScreen = findRenderer(currentJob.getScreen());
 						cnt++;
 					}while(theScreen == null);
 
@@ -516,16 +478,16 @@ public class DLNACtrl {
 				Main.jlog.log(Level.INFO, "Rendering service found! Checking media server...");
 
 				currentJob.setStatus("searching media server");
-				
-				Service theSource = getServerDev(currentJob);
+
+				Service theSource = findVault(currentJob.getServer());;
 				if(theSource == null){								// no media server!!!
 					Main.jlog.log(Level.WARNING, "No media directory found!");
 					currentJob.setStatus("media directory mising");
 				}
 				else{
 					Main.jlog.log(Level.INFO, "Media directory found! Checking item ...");
-					
-					Item item = currentJob.getItemFromServer( theSource, ctrlPoint);
+
+					Item item = getItemFromServer( theSource );
 					if(item == null){								// no media to render!!
 						Main.jlog.log(Level.WARNING, "No item found!");
 						currentJob.setStatus("item mising");
@@ -534,7 +496,7 @@ public class DLNACtrl {
 						currentJob.setItemTitle(item.getTitle());
 						currentJob.setItemPath(item.getFirstResource().getValue());
 						Main.jlog.log(Level.INFO, ".... now rendering "+currentJob.getItemTitle() + " from " + currentJob.getPlaylist() + " to " + currentJob.getScreen());
-					
+
 						try {										// render media on renderer
 							currentJob.setStatus("startPlay");
 							playItemOnScreen(theScreen, item, currentJob.getPictTime());
@@ -543,7 +505,7 @@ public class DLNACtrl {
 							e.printStackTrace();
 							currentJob.setStatus("exception during play");
 						}
-						
+
 						if(newJob != null){
 							currentJob = newJob;
 							newJob = null;
@@ -574,16 +536,14 @@ public class DLNACtrl {
 
 	public void playItemOnScreen(Service theScreen, Item item, int duration)
 			throws InterruptedException, ExecutionException {
-
-		MySubscriptionCallback callback;
-		callback = new MySubscriptionCallback(theScreen, 10);
-		upnpService.getControlPoint().execute(callback);
+		
+		TransportStateCallback.add(theScreen, 10);
 
 		String uri = sendURIandPlay(theScreen, item);
 		if(!currentJob.hasStatus("sendPlay")){
 			return;
 		}
-		
+
 		long time = duration;
 		String dur = item.getFirstResource().getDuration();
 		if(dur != null){
@@ -609,34 +569,9 @@ public class DLNACtrl {
 				Main.jlog.log(Level.INFO, "Resend URI after screen restart " + currentJob.getRest() + " seconds media=" + uri);
 				return;
 			}
-			switch (callback.theState) {
-			case PLAYING :
-				Main.jlog.log(Level.INFO, "State is: playing " + currentJob.getRest() + " seconds media=" + uri);
-				break;
-			case STOPPED :
-				Main.jlog.log(Level.INFO, "State is: stopped " + currentJob.getRest() + " seconds media=" + uri);
-				break;
-			case CUSTOM :
-				Main.jlog.log(Level.INFO, "State is: custom " + currentJob.getRest() + " seconds media=" + uri);
-				break;
-			case NO_MEDIA_PRESENT :
-				Main.jlog.log(Level.INFO, "State is: no media present " + currentJob.getRest() + " seconds media=" + uri);
-				break;
-			case PAUSED_PLAYBACK :
-				Main.jlog.log(Level.INFO, "State is: paused playback " + currentJob.getRest() + " seconds media=" + uri);
-				break;
-			case PAUSED_RECORDING :
-				Main.jlog.log(Level.INFO, "State is: paused recording " + currentJob.getRest() + " seconds media=" + uri);
-				break;
-			case RECORDING :
-				Main.jlog.log(Level.INFO, "State is: recording " + currentJob.getRest() + " seconds media=" + uri);
-				break;
-			default:
-//				Main.jlog.log(Level.INFO, "State is: DEFAULT " + currentJob.getRest() + " seconds media=" + uri);
-				break;
-			}
 			currentJob.setStatus("playing");
 			time = currentJob.getRest();
+			Main.jlog.log(Level.INFO, "Waiting " + time + " seconds media=" + uri);
 		}
 		currentJob.setStatus("medium finished");
 		currentJob.setRest(0);
@@ -644,7 +579,7 @@ public class DLNACtrl {
 
 	private String sendURIandPlay(Service theScreen, Item item) throws InterruptedException, ExecutionException {
 		String uri = item.getFirstResource().getValue();
-		Future<String> fa = null;
+		String res = null;
 
 		Main.jlog.log(Level.INFO, "Send media " + uri + " to " + theScreen.getDevice().getDetails().getFriendlyName());
 
@@ -658,14 +593,13 @@ public class DLNACtrl {
 				Main.jlog.log(Level.WARNING, "Send media " + uri + " to " + theScreen.getDevice().getDetails().getFriendlyName() + " failed!");
 			}
 		};
-		fa = upnpService.getControlPoint().execute(setAVTransportURIAction);
-
-		fa.get();
+//		fa = upnpService.getControlPoint().execute(setAVTransportURIAction);
+		execAction(setAVTransportURIAction).get();
 
 		if(!currentJob.hasStatus("sendURL")){
 			return uri;
 		}
-		
+
 		Main.jlog.log(Level.INFO, "Playing media " + uri + " on " + theScreen.getDevice().getDetails().getFriendlyName());
 		currentJob.setStatus("sendPlay");
 		ActionCallback playAction =
@@ -677,169 +611,11 @@ public class DLNACtrl {
 				Main.jlog.log(Level.WARNING, "Playing media " + uri + " on " + theScreen.getDevice().getDetails().getFriendlyName() + " failed!");
 			}
 		};
-		fa = upnpService.getControlPoint().execute(playAction);
-		fa.get();
+//		fa = upnpService.getControlPoint().execute(playAction);
+		execAction(playAction).get();
+
 		return uri;
 	}
 
-	public void renderPlaylist()
-			throws InterruptedException, ExecutionException {
-		Service theScreen = null;
-		Device theServer = null;
-		Service theSource = null;
-		//		MySubscriptionCallback callback = null;
-		DirContent theDirectory = null;
 
-		theScreen = findService("LTDN42K680XWSEU3DA0CB", typeRenderer);
-
-		Collection<Device> server = registry.getDevices(typeContent);
-		for( Device dev : server){
-			Main.jlog.log(Level.INFO, "Found Server " + dev.getDisplayString() + " | " + dev.getDetails().getFriendlyName());
-			//      	printDevice(dev);
-			//      	printDirectory(dev, "0", 0, "//" + dev.getDetails().getFriendlyName());
-
-			theDirectory = getDirContent(dev, "0");
-			if(theDirectory != null){
-				theDirectory.printDirs();
-				theDirectory.printItems();
-			}
-		}
-
-
-		if(theScreen != null && theSource != null && theServer != null && theDirectory != null){
-			play("LTDN42K680XWSEU3DA0CB", theSource.getDevice().getDetails().getFriendlyName(), theDirectory.id, (int)PICTIME);
-		}
-		else{
-			if(theScreen == null)
-				Main.jlog.log(Level.WARNING, "No renderer found.... ");
-
-			if(theSource == null)
-				Main.jlog.log(Level.WARNING, "No Media server or directory not found");
-		}
-	}
-
-	private void printDevice(RemoteDevice dev)
-	{
-		while(!dev.isFullyHydrated()){
-			Main.jlog.log(Level.INFO, "Sleeping for a second...");
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {
-
-			}
-		}
-		DeviceDetails dd =  dev.getDetails();
-		RemoteDeviceIdentity id = dev.getIdentity();
-		Main.jlog.log(Level.INFO, "  Identity: " + id.toString());
-		Main.jlog.log(Level.INFO, "  URL: " + id.getDescriptorURL());
-		Main.jlog.log(Level.INFO, "  MaxAgeSeconds: " + id.getMaxAgeSeconds());
-		Main.jlog.log(Level.INFO, "  LocalAdress: " + id.getDiscoveredOnLocalAddress());
-		Main.jlog.log(Level.INFO, "  Serial number " + dd.getSerialNumber());
-		System.out.print("  MAC: ");
-		printByteArray(id.getInterfaceMacAddress());
-		Main.jlog.log(Level.INFO, "  UDN: " + id.getUdn());
-		System.out.print("  WakeOnLANBytes: ");
-		printByteArray(id.getWakeOnLANBytes());
-		Main.jlog.log(Level.INFO, "  Device: " + dev.toString());
-		DeviceDetails d = dev.getDetails();
-		Main.jlog.log(Level.INFO, "  FriendlyName: " + d.getFriendlyName());
-		for(RemoteService s : dev.getServices() ){
-			Main.jlog.log(Level.INFO, "    RemoteService: " + s.toString());
-			Main.jlog.log(Level.INFO, "    ServiceID: " + s.getServiceType());
-			Main.jlog.log(Level.INFO, "    Has Actions: " + s.hasActions());
-			if(s.hasActions()){
-				Action<RemoteService>[] act = s.getActions();
-				for( Action<RemoteService> a : act){
-					Main.jlog.log(Level.INFO, "      Action: " + a.getName());
-					for(ActionArgument<RemoteService> arg : a.getInputArguments()){
-						Main.jlog.log(Level.INFO, "        InputArgument: " + arg.getName());
-					}
-					for(ActionArgument<RemoteService> arg : a.getOutputArguments()){
-						Main.jlog.log(Level.INFO, "        OutputArgument: " + arg.getName());
-					}
-				}
-			}
-		}
-
-		RemoteService srv = dev.findService(new UDAServiceId("urn:schemas-upnp-org:service:ContentDirectory:1"));
-		if( srv != null ){
-			Action getBrowseAction = srv.getAction("Browse");
-			if( getBrowseAction != null){
-				ActionInvocation getBrowseInvocation = new ActionInvocation(getBrowseAction);
-				getBrowseInvocation.setInput("ObjectID", 0); // Can throw InvalidValueException
-				getBrowseInvocation.setInput("BrowseFlag", "BrowseDirectChildren"); // Can throw InvalidValueException
-
-				ActionCallback getStatusCallback = new ActionCallback(getBrowseInvocation) {
-
-					@Override
-					public void success(ActionInvocation invocation) {
-						ActionArgumentValue status  = invocation.getOutput("Result");
-						if(status != null ){
-							Main.jlog.log(Level.INFO, "      R: "+status.getValue());
-						}
-					}
-
-					@Override
-					public void failure(ActionInvocation invocation,
-							UpnpResponse operation,
-							String defaultMsg) {
-						Main.jlog.log(Level.WARNING, defaultMsg);
-					}
-				};
-
-				upnpService.getControlPoint().execute(getStatusCallback);
-			}
-
-		}
-	}
-	private void printByteArray(byte[] arr){
-		if( arr != null ){
-			for(byte b : arr){
-				System.out.print(Byte.toString(b));
-			}
-			Main.jlog.log(Level.INFO, "");
-		}
-		else
-			Main.jlog.log(Level.INFO, "<null>");
-	}
-
-	private void printItems(DIDLContent didl) {
-		int size = didl.getItems().size();
-		Main.jlog.log(Level.INFO, "PrintDir:         Number of items: " + size);
-		for(int i = 0; i < size; i++){
-			Item item = didl.getItems().get(i); 
-			if(true || ImageItem.class.equals(item) || VideoItem.class.equals(item)){
-				String out = "PrintDir:           [" + item.getId() + "]: Title:" + item.getTitle() +
-						" Album:" + item.getFirstPropertyValue(DIDLObject.Property.UPNP.ALBUM.class) +
-						" MIMEType: " + item.getFirstResource().getProtocolInfo().getContentFormatMimeType().toString() +
-						" URL: " + item.getFirstResource().getValue();
-				Main.jlog.log(Level.INFO, out);
-			}
-		}
-	}
-
-	private void printSubDirs( DIDLContent didl, final int dep, final String par, final Service s ) {
-		int size = didl.getContainers().size();
-		Main.jlog.log(Level.INFO, "PrintDir:         Number of containers: " + size);
-		for(int i = 0; i < size; i++){
-			Container cont = didl.getContainers().get(i); 
-			String out = "PrintDir:           [" + cont.getId() + "]: Title: " + par + "/" +cont.getTitle() +
-					" MIMEType: " + cont.getFirstResource().getProtocolInfo().getContentFormatMimeType().toString() +
-					" URL: " + cont.getFirstResource().getValue();
-			Main.jlog.log(Level.INFO, out);
-			if( dep < 3 ){
-				printDirectory(s, cont.getId(), dep+1, par + "/" + cont.getTitle() + "/");
-			}
-		}
-	}
-
-	private void printDirectory(final Service s, final String id, final int dep, final String par)
-	{
-		if(s != null){
-			doBrowse(s, id, (ActionInvocation actionInvocation, DIDLContent didl) -> {
-				printSubDirs(didl, dep, par, s);
-				printItems(didl);
-			});
-		}
-	}
 }
