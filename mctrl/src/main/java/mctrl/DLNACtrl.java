@@ -473,10 +473,13 @@ public class DLNACtrl {
 		if(currentJob.hasStatus("idle")){
 			currentJob = job;
 	    	Future<?> f = execPlay.submit(() -> {
+				Main.jlog.log(Level.INFO, "Starting play job...");
 	    		while(!currentJob.hasStatus("stop") ){
 	    			doPlay();
-					if(currentJob.hasStatus("stop"))
+					if(currentJob.hasStatus("stop")){
+						Main.jlog.log(Level.INFO, "Play aborted due to 'stop' status.");
 						return;
+					}
 	    			if(newJob != null){
 						Main.jlog.log(Level.INFO, "Playlist " + currentJob.getPlaylist() + " changed to " + newJob.getPlaylist());
 						currentJob = newJob;
@@ -484,11 +487,11 @@ public class DLNACtrl {
 	    			}
 	    			else{
 	    				currentJob = job;
+						Main.jlog.log(Level.INFO, "Play rollover....");
 	    			}
 	    		}
 				Main.jlog.log(Level.INFO, "Play ended due to 'stop' status.");
 	    	});
-			Main.jlog.log(Level.INFO, "Play job started.");
 		}
 		else{
 			Main.jlog.log(Level.INFO, "Rendering is already running, attempting to change playlist.");
