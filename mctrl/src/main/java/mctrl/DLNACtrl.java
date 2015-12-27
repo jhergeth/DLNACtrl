@@ -3,7 +3,10 @@ package mctrl;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.logging.Level;
@@ -44,6 +47,8 @@ public class DLNACtrl {
 	Registry registry = null;
 	UDAServiceType typeContent = null;
 	UDAServiceType typeRenderer = null;
+	
+	ExecutorService execPlay;
 
 	public DLNACtrl() {
 		super();
@@ -88,6 +93,7 @@ public class DLNACtrl {
 		typeContent = new UDAServiceType("ContentDirectory");
 		searchUDAServiceType(null);
 
+		execPlay = Executors.newFixedThreadPool(1);
 		newJob = null;
 		currentJob = new PlayJob();
 	}
@@ -95,6 +101,25 @@ public class DLNACtrl {
 	public void shutDown() {
 		// Release all resources and advertise BYEBYE to other UPnP devices
 		Main.jlog.log(Level.INFO, "Stopping Cling...");
+		
+    	// Shutdown executors
+    	try {
+    		Main.jlog.log(Level.INFO, "attempt to shutdown executor");
+    	    execPlay.shutdown();
+    	    execPlay.awaitTermination(11, TimeUnit.SECONDS);
+    	}
+    	catch (InterruptedException e) {
+    		Main.jlog.log(Level.SEVERE, "tasks interrupted");
+    	}
+    	finally {
+    	    if (!execPlay.isTerminated()) {
+    	    	Main.jlog.log(Level.SEVERE, "cancel non-finished tasks");
+    	    }
+    	    execPlay.shutdownNow();
+    	    Main.jlog.log(Level.INFO, "shutdown finished");
+    	}
+
+
 		upnpService.shutdown();
 	}
 
@@ -434,8 +459,6 @@ public class DLNACtrl {
 	}
 
 	public void play(PlayJob job, int duration) {
-		ControlPoint ctrlPoint = upnpService.getControlPoint();
-
 		Main.jlog.log(Level.INFO, "Play " + job.getPlaylist() + " from " + job.getServer() + " to " + job.getScreen());
 
 		if(!job.checkJob()){
@@ -447,91 +470,111 @@ public class DLNACtrl {
 			return;
 		}
 
-		while(currentJob.hasStatus("idle")){
+		if(currentJob.hasStatus("idle")){
 			currentJob = job;
-			Main.jlog.log(Level.INFO, "Starting rendering of playlist " + currentJob.getPlaylist());
-
-			for( int m = 0; m < getDirSize(job); m++){				// for all items in playlist
-				currentJob.setItem(m);
-
-				Service theScreen = findRenderer(currentJob.getScreen());		// find a renderer
-				if(theScreen == null){
-					Main.jlog.log(Level.WARNING, "No rendering service found!");
-					currentJob.setStatus("renderer mising");
-
-					int cnt = 0;
-					do{
-						if(cnt%12 == 0){
-							// Broadcast a search message for all devices
-							ctrlPoint.search(new STAllHeader());
-						}
-						try {
-							Main.jlog.log(Level.INFO, "Waiting 5 seconds for renderer...");
-							Thread.sleep(5000);
-						} catch (InterruptedException e) {
-						}
-						theScreen = findRenderer(currentJob.getScreen());
-						cnt++;
-					}while(theScreen == null);
-
-				}
-				Main.jlog.log(Level.INFO, "Rendering service found! Checking media server...");
-
-				currentJob.setStatus("searching media server");
-
-				Service theSource = findVault(currentJob.getServer());;
-				if(theSource == null){								// no media server!!!
-					Main.jlog.log(Level.WARNING, "No media directory found!");
-					currentJob.setStatus("media directory mising");
-				}
-				else{
-					Main.jlog.log(Level.INFO, "Media directory found! Checking item ...");
-
-					Item item = getItemFromServer( theSource );
-					if(item == null){								// no media to render!!
-						Main.jlog.log(Level.WARNING, "No item found!");
-						currentJob.setStatus("item mising");
-					}
-					else{
-						currentJob.setItemTitle(item.getTitle());
-						currentJob.setItemPath(item.getFirstResource().getValue());
-						Main.jlog.log(Level.INFO, ".... now rendering "+currentJob.getItemTitle() + " from " + currentJob.getPlaylist() + " to " + currentJob.getScreen());
-
-						try {										// render media on renderer
-							currentJob.setStatus("startPlay");
-							playItemOnScreen(theScreen, item, currentJob.getPictTime());
-						} catch (InterruptedException | ExecutionException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
-							currentJob.setStatus("exception during play");
-						}
-
-						if(newJob != null){
-							currentJob = newJob;
-							newJob = null;
-						}
-					}
-				}
-				if( currentJob.hasStatus("medium finished")){
-					m = currentJob.getItem();
-					if(currentJob.back && m > 1){
-						m -= 2;
-					}
-					currentJob.jumpClear();
-				}
-				else
-					m--;
-			}
-			Main.jlog.log(Level.INFO, "Rendering of playlist " + currentJob.getPlaylist() + " finished..");
-			currentJob = new PlayJob();
+	    	Future<?> f = execPlay.submit(() -> {
+	    		while(!currentJob.hasStatus("stop") ){
+	    			doPlay();
+					if(currentJob.hasStatus("stop"))
+						return;
+	    			if(newJob != null){
+						Main.jlog.log(Level.INFO, "Playlist " + currentJob.getPlaylist() + " changed to " + newJob.getPlaylist());
+						currentJob = newJob;
+						newJob = null;
+	    			}
+	    			else{
+	    				currentJob = job;
+	    			}
+	    		}
+				Main.jlog.log(Level.INFO, "Play ended due to 'stop' status.");
+	    	});
+			Main.jlog.log(Level.INFO, "Play job started.");
 		}
-		if(!currentJob.hasStatus("idle"))
-		{
-			Main.jlog.log(Level.INFO, "Rendering is already running, just changed playlist.");
+		else{
+			Main.jlog.log(Level.INFO, "Rendering is already running, attempting to change playlist.");
 			newJob = job;
 			newJob.setItem(0);
 			currentJob.setRest(0);
 		}
+	}
+
+	private void doPlay() {
+		ControlPoint ctrlPoint = upnpService.getControlPoint();
+
+		Main.jlog.log(Level.INFO, "Starting rendering of playlist " + currentJob.getPlaylist());
+
+		for( int m = 0; m < getDirSize(currentJob); m++){				// for all items in playlist
+			currentJob.setItem(m);
+
+			Service<?, ?> theScreen = findRenderer(currentJob.getScreen());		// find a renderer
+			Service<?, ?> theSource = findVault(currentJob.getServer());;		// find media vault
+			
+			int cnt = 0;
+			while(theScreen == null || theSource == null){
+				if( theScreen == null ){
+					Main.jlog.log(Level.WARNING, "No rendering service found!");
+					currentJob.setStatus("renderer mising");
+				}
+				else{
+					Main.jlog.log(Level.WARNING, "No media directory found!");
+					currentJob.setStatus("media directory mising");
+				}
+
+				if(cnt%12 == 0){
+					// Broadcast a search message for all devices
+					ctrlPoint.search(new STAllHeader());
+				}
+				try {
+					Main.jlog.log(Level.INFO, "Waiting 5 seconds for devices...");
+					Thread.sleep(5000);
+					if(currentJob.hasStatus("stop"))
+						return;
+					
+				} catch (InterruptedException e) {
+				}
+				theScreen = findRenderer(currentJob.getScreen());		// find a renderer
+				theSource = findVault(currentJob.getServer());;		// find media vault
+				cnt++;
+			}
+			Main.jlog.log(Level.INFO, "Rendering service and media diretory found! Checking item...");
+			Item item = getItemFromServer( theSource );
+			if(item == null){								// no media to render!!
+				Main.jlog.log(Level.WARNING, "No item found!");
+				currentJob.setStatus("item mising");
+			}
+			else{
+				currentJob.setItemTitle(item.getTitle());
+				currentJob.setItemPath(item.getFirstResource().getValue());
+				Main.jlog.log(Level.INFO, ".... now rendering "+currentJob.getItemTitle() + " from " + currentJob.getPlaylist() + " to " + currentJob.getScreen());
+
+				try {										// render media on renderer
+					currentJob.setStatus("startPlay");
+					playItemOnScreen(theScreen, item, currentJob.getPictTime());
+					if(currentJob.hasStatus("stop"))
+						return;
+					
+				} catch (InterruptedException | ExecutionException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+					currentJob.setStatus("exception during play");
+				}
+
+				if(newJob != null){
+					return;
+				}
+			}
+			if( currentJob.hasStatus("medium finished")){
+				m = currentJob.getItem();
+				if(currentJob.back && m > 1){
+					m -= 2;
+				}
+				currentJob.jumpClear();
+			}
+			else
+				m--;
+		}
+
+		Main.jlog.log(Level.INFO, "Rendering of playlist " + currentJob.getPlaylist() + " finished..");
 	}
 
 	public void playItemOnScreen(Service theScreen, Item item, int duration)
