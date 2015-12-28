@@ -296,7 +296,8 @@ public class DLNACtrl {
 		final AtomicReference<DirContent> res = new AtomicReference<DirContent>();
 
 		doBrowse(s, from, (ActionInvocation actionInvocation, DIDLContent didl) -> {
-			res.set(new DirContent(from, from, didl.getItems(), didl.getContainers()));
+			String url = didl.getFirstContainer().getFirstResource().getImportUri().toString();
+			res.set(new DirContent(from, from, url, didl.getItems(), didl.getContainers()));
 			return;
 		});
 
@@ -313,7 +314,8 @@ public class DLNACtrl {
 		doBrowse(s, from, (ActionInvocation actionInvocation, DIDLContent didl) -> {
 			for( Container cont : didl.getContainers()){
 				if( cont.getTitle().equalsIgnoreCase(to)){
-					res.set(new DirContent(cont.getId(), cont.getTitle(), cont.getItems(), cont.getContainers()));
+					String url = didl.getFirstContainer().getFirstResource().getImportUri().toString();
+					res.set(new DirContent(cont.getId(), cont.getTitle(), url, cont.getItems(), cont.getContainers()));
 					return;
 				}
 			}

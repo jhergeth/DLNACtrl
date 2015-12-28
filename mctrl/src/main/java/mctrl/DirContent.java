@@ -9,6 +9,7 @@ import org.fourthline.cling.support.model.item.Item;
 public class DirContent {
 	String id;
 	String title;
+	String iconUrl;
 	List<Item> items;
 	List<Container> dirs;
 
@@ -17,9 +18,10 @@ public class DirContent {
 		items = null;
 		dirs = null;
 		title = null;
+		iconUrl = null;
 	}
-	public DirContent(String s, String t, List<Item> i, List<Container> d){
-		id = s; items = i; dirs = d; title = t;
+	public DirContent(String s, String t, String u, List<Item> i, List<Container> d){
+		id = s; items = i; dirs = d; title = t; iconUrl = u;
 		Main.jlog.log(Level.INFO,  "DirContent <"+s+">: "+t+" created.");
 	}
 
