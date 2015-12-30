@@ -44,6 +44,11 @@ public class PlayJob{
 		item = total = rest = 0;
 		back = forward = false;
 	}
+	public PlayJob(PlayJob o){
+		this.status = o.status; this.playlist = o.playlist; this.screen = o.screen; this.server = o.server; this.total = o.total; this.rest = o.rest; this.item = o.item;
+		this.pictTime = o.pictTime;
+		back = forward = false;
+	}
 
 	public boolean hasStatus(String s){
 		return( status.compareToIgnoreCase(s) == 0);

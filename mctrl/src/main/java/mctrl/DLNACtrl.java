@@ -1,5 +1,6 @@
 package mctrl;
 
+import java.net.URI;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -32,6 +33,8 @@ import org.fourthline.cling.support.contentdirectory.callback.Browse;
 import org.fourthline.cling.support.contentdirectory.callback.Browse.Status;
 import org.fourthline.cling.support.model.BrowseFlag;
 import org.fourthline.cling.support.model.DIDLContent;
+import org.fourthline.cling.support.model.DescMeta;
+import org.fourthline.cling.support.model.Res;
 import org.fourthline.cling.support.model.SortCriterion;
 import org.fourthline.cling.support.model.container.Container;
 import org.fourthline.cling.support.model.item.Item;
@@ -39,11 +42,12 @@ import org.fourthline.cling.support.model.item.Item;
 public class DLNACtrl {
 
 	public static final String version = "0.2.10";
-	protected static UpnpService upnpService = null;
+	public static UpnpService upnpService = null;
 
 	final long PICTIME = 30*1000;
 	public PlayJob currentJob;
 	public PlayJob newJob = null;
+	public DLNACtrlPlaySimple pJob = null;
 	Registry registry = null;
 	UDAServiceType typeContent = null;
 	UDAServiceType typeRenderer = null;
@@ -94,8 +98,8 @@ public class DLNACtrl {
 		searchUDAServiceType(null);
 
 		execPlay = Executors.newFixedThreadPool(1);
-		newJob = null;
 		currentJob = new PlayJob();
+		newJob = null;
 	}
 
 	public void shutDown() {
@@ -123,18 +127,6 @@ public class DLNACtrl {
 		upnpService.shutdown();
 	}
 
-	public long timeToLong(String s) {
-		long result = 0;
-		String[] parts = s.split("[:.]");
-		result += Long.parseLong(parts[0]);
-		result *= 60;
-		result += Long.parseLong(parts[1]);
-		result *= 60;
-		result += Long.parseLong(parts[2]);
-		result *= 1000;
-		result += Long.parseLong(parts[3]);
-		return result;
-	}
 
 	/**
 	 * search UDAServiceType
@@ -296,8 +288,8 @@ public class DLNACtrl {
 		final AtomicReference<DirContent> res = new AtomicReference<DirContent>();
 
 		doBrowse(s, from, (ActionInvocation actionInvocation, DIDLContent didl) -> {
-			String url = didl.getFirstContainer().getFirstResource().getImportUri().toString();
-			res.set(new DirContent(from, from, url, didl.getItems(), didl.getContainers()));
+			Main.jlog.log(Level.INFO, "browseTo: from="+ from + "\n" + printDIDL(didl) + "\n" );
+			res.set(new DirContent(from, from, didl.getItems(), didl.getContainers()));
 			return;
 		});
 
@@ -314,8 +306,8 @@ public class DLNACtrl {
 		doBrowse(s, from, (ActionInvocation actionInvocation, DIDLContent didl) -> {
 			for( Container cont : didl.getContainers()){
 				if( cont.getTitle().equalsIgnoreCase(to)){
-					String url = didl.getFirstContainer().getFirstResource().getImportUri().toString();
-					res.set(new DirContent(cont.getId(), cont.getTitle(), url, cont.getItems(), cont.getContainers()));
+					Main.jlog.log(Level.INFO, "browseTo: from="+ from + " to=" + to + " Container: " + cont.getTitle() + "\n" + printDIDL(didl));
+					res.set(new DirContent(cont.getId(), cont.getTitle(), cont.getItems(), cont.getContainers()));
 					return;
 				}
 			}
@@ -326,6 +318,30 @@ public class DLNACtrl {
 			Main.jlog.log(Level.INFO, "browseTo: res="+ ret.id);
 		return ret;
 
+	}
+	
+	private String printDIDL(DIDLContent d){
+		String res = "";
+		res += d.getContainers().size() + " containers:\n";
+		for( Container cont : d.getContainers()){
+			res += cont.getTitle() + "["+cont.getFirstResource().getValue() +"]" +  ", ";
+		}
+		res += "\n";
+		
+		res += d.getItems().size() + " items ";
+		for( Item item : d.getItems()){
+			res += item.getTitle() + ", ";
+		}
+		res += "\n";
+		
+		res += d.getDescMetadata().size() + " metadata ";
+		for( DescMeta m : d.getDescMetadata()){
+			res += m.getId() + ", ";
+		}
+		res += "\n";
+		
+		
+		return res;
 	}
 
 	public int getDirSize(PlayJob job) {
@@ -472,23 +488,25 @@ public class DLNACtrl {
 			return;
 		}
 
+		DLNACtrlPlaySimple pCtrl = new DLNACtrlPlaySimple(this, currentJob);
+		
 		if(currentJob.hasStatus("idle")){
-			currentJob = job;
+			currentJob = new PlayJob(job);
 	    	Future<?> f = execPlay.submit(() -> {
 				Main.jlog.log(Level.INFO, "Starting play job...");
 	    		while(!currentJob.hasStatus("stop") ){
-	    			doPlay();
+	    			pCtrl.doPlay();
 					if(currentJob.hasStatus("stop")){
 						Main.jlog.log(Level.INFO, "Play aborted due to 'stop' status.");
 						return;
 					}
 	    			if(newJob != null){
 						Main.jlog.log(Level.INFO, "Playlist " + currentJob.getPlaylist() + " changed to " + newJob.getPlaylist());
-						currentJob = newJob;
+						currentJob = new PlayJob(newJob);
 						newJob = null;
 	    			}
 	    			else{
-	    				currentJob = job;
+	    				currentJob = new PlayJob(job);
 						Main.jlog.log(Level.INFO, "Play rollover....");
 	    			}
 	    		}
@@ -503,167 +521,6 @@ public class DLNACtrl {
 		}
 	}
 
-	private void doPlay() {
-		ControlPoint ctrlPoint = upnpService.getControlPoint();
-
-		Main.jlog.log(Level.INFO, "Starting rendering of playlist " + currentJob.getPlaylist());
-
-		for( int m = 0; m < getDirSize(currentJob); m++){				// for all items in playlist
-			currentJob.setItem(m);
-
-			Service<?, ?> theScreen = findRenderer(currentJob.getScreen());		// find a renderer
-			Service<?, ?> theSource = findVault(currentJob.getServer());;		// find media vault
-			
-			int cnt = 0;
-			while(theScreen == null || theSource == null){
-				if( theScreen == null ){
-					Main.jlog.log(Level.WARNING, "No rendering service found!");
-					currentJob.setStatus("renderer mising");
-				}
-				else{
-					Main.jlog.log(Level.WARNING, "No media directory found!");
-					currentJob.setStatus("media directory mising");
-				}
-
-				if(cnt%12 == 0){
-					// Broadcast a search message for all devices
-					ctrlPoint.search(new STAllHeader());
-				}
-				try {
-					Main.jlog.log(Level.INFO, "Waiting 5 seconds for devices...");
-					Thread.sleep(5000);
-					if(currentJob.hasStatus("stop"))
-						return;
-					
-				} catch (InterruptedException e) {
-				}
-				theScreen = findRenderer(currentJob.getScreen());		// find a renderer
-				theSource = findVault(currentJob.getServer());;		// find media vault
-				cnt++;
-			}
-			Main.jlog.log(Level.INFO, "Rendering service and media diretory found! Checking item...");
-			Item item = getItemFromServer( theSource );
-			if(item == null){								// no media to render!!
-				Main.jlog.log(Level.WARNING, "No item found!");
-				currentJob.setStatus("item mising");
-			}
-			else{
-				currentJob.setItemTitle(item.getTitle());
-				currentJob.setItemPath(item.getFirstResource().getValue());
-				Main.jlog.log(Level.INFO, ".... now rendering "+currentJob.getItemTitle() + " from " + currentJob.getPlaylist() + " to " + currentJob.getScreen());
-
-				try {										// render media on renderer
-					currentJob.setStatus("startPlay");
-					playItemOnScreen(theScreen, item, currentJob.getPictTime());
-					if(currentJob.hasStatus("stop"))
-						return;
-					
-				} catch (InterruptedException | ExecutionException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-					currentJob.setStatus("exception during play");
-				}
-
-				if(newJob != null){
-					return;
-				}
-			}
-			if( currentJob.hasStatus("medium finished")){
-				m = currentJob.getItem();
-				if(currentJob.back && m > 1){
-					m -= 2;
-				}
-				currentJob.jumpClear();
-			}
-			else
-				m--;
-		}
-
-		Main.jlog.log(Level.INFO, "Rendering of playlist " + currentJob.getPlaylist() + " finished..");
-	}
-
-	public void playItemOnScreen(Service theScreen, Item item, int duration)
-			throws InterruptedException, ExecutionException {
-		
-		TransportStateCallback.add(theScreen, 10);
-
-		String uri = sendURIandPlay(theScreen, item);
-		if(!currentJob.hasStatus("sendPlay")){
-			return;
-		}
-
-		long time = duration;
-		String dur = item.getFirstResource().getDuration();
-		if(dur != null){
-			Main.jlog.log(Level.INFO, "Duration of "+ uri + " is: " + dur);
-			time = timeToLong(dur) + 100;
-		}
-
-		if( time < 5000)
-			time = 5000;
-
-		currentJob.setStatus("playing");
-		currentJob.setTotal((int)(time));
-		currentJob.setRest((int)(time));
-		Main.jlog.log(Level.INFO, "Sleeping " + time/1000 + " seconds media=" + uri);
-
-		while(time > 0){
-			try {
-				currentJob.setRest((int)(time-1000));
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {}
-
-			if(currentJob.hasStatus("screen restarted")){
-				Main.jlog.log(Level.INFO, "Resend URI after screen restart " + currentJob.getRest() + " seconds media=" + uri);
-				return;
-			}
-			currentJob.setStatus("playing");
-			time = currentJob.getRest();
-			Main.jlog.log(Level.INFO, "Waiting " + time + " seconds media=" + uri);
-		}
-		currentJob.setStatus("medium finished");
-		currentJob.setRest(0);
-	}
-
-	private String sendURIandPlay(Service theScreen, Item item) throws InterruptedException, ExecutionException {
-		String uri = item.getFirstResource().getValue();
-		String res = null;
-
-		Main.jlog.log(Level.INFO, "Send media " + uri + " to " + theScreen.getDevice().getDetails().getFriendlyName());
-
-		currentJob.setStatus("sendURL");
-		ActionCallback setAVTransportURIAction =
-				new SetAVTransportURI(theScreen, uri, "NO METADATA") {
-			@Override
-			public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg) {
-				// Something was wrong
-				currentJob.setStatus("failure during SetAVTransport");
-				Main.jlog.log(Level.WARNING, "Send media " + uri + " to " + theScreen.getDevice().getDetails().getFriendlyName() + " failed!");
-			}
-		};
-//		fa = upnpService.getControlPoint().execute(setAVTransportURIAction);
-		execAction(setAVTransportURIAction).get();
-
-		if(!currentJob.hasStatus("sendURL")){
-			return uri;
-		}
-
-		Main.jlog.log(Level.INFO, "Playing media " + uri + " on " + theScreen.getDevice().getDetails().getFriendlyName());
-		currentJob.setStatus("sendPlay");
-		ActionCallback playAction =
-				new Play(theScreen) {
-			@Override
-			public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg) {
-				// Something was wrong
-				currentJob.setStatus("failure during sendPlay");
-				Main.jlog.log(Level.WARNING, "Playing media " + uri + " on " + theScreen.getDevice().getDetails().getFriendlyName() + " failed!");
-			}
-		};
-//		fa = upnpService.getControlPoint().execute(playAction);
-		execAction(playAction).get();
-
-		return uri;
-	}
 
 
 }
