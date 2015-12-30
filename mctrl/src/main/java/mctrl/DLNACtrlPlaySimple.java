@@ -111,7 +111,6 @@ public class DLNACtrlPlaySimple {
 			if(newJob != null){
 				return;
 			}
-			m++;
 			if( job.hasStatus("medium finished")){
 				m = job.getItem();
 				if(job.back && m > 1){
@@ -121,6 +120,7 @@ public class DLNACtrlPlaySimple {
 			}
 			else
 				m--;
+			m++;
 		}while(m < dirsize);
 
 		Main.jlog.log(Level.INFO, "Rendering of playlist " + job.getPlaylist() + " finished..");
