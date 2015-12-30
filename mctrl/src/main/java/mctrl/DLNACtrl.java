@@ -380,7 +380,8 @@ public class DLNACtrl {
 					String defaultMsg) {
 				// Something wasn't right...
 				Main.jlog.log(Level.WARNING, "doBrowse: " + s.toString() + " failure: " + defaultMsg );
-
+				DIDLContent didl = new DIDLContent();
+				func.accept(actionInvocation, didl);
 			}
 		};
 		Future<String> fu = upnpService.getControlPoint().execute(doBrowseAction);
@@ -398,12 +399,15 @@ public class DLNACtrl {
 		return;
 	}
 
-	public Item getItemFromServer(Service server) {
+	public Item getItemFromServer(Service server, String playlist, int item) {
+		if( server == null)
+			return null;
+		
 		//		Service theSource, final String from, final int no){
 		final AtomicReference<Item> res = new AtomicReference<Item>();
 
-		ActionCallback doBrowseAction  = new Browse(server, currentJob.getPlaylist(), BrowseFlag.DIRECT_CHILDREN, 
-				"*", currentJob.getItem(), new Long(1), (SortCriterion[])null) {
+		ActionCallback doBrowseAction  = new Browse(server, playlist, BrowseFlag.DIRECT_CHILDREN, 
+				"*", item, new Long(1), (SortCriterion[])null) {
 
 			@Override
 			public void received(ActionInvocation actionInvocation, DIDLContent didl) {
@@ -488,10 +492,10 @@ public class DLNACtrl {
 			return;
 		}
 
-		DLNACtrlPlaySimple pCtrl = new DLNACtrlPlaySimple(this, currentJob);
-		
 		if(currentJob.hasStatus("idle")){
 			currentJob = new PlayJob(job);
+			DLNACtrlPlaySimple pCtrl = new DLNACtrlPlaySimple(this, currentJob);
+			
 	    	Future<?> f = execPlay.submit(() -> {
 				Main.jlog.log(Level.INFO, "Starting play job...");
 	    		while(!currentJob.hasStatus("stop") ){
@@ -504,9 +508,11 @@ public class DLNACtrl {
 						Main.jlog.log(Level.INFO, "Playlist " + currentJob.getPlaylist() + " changed to " + newJob.getPlaylist());
 						currentJob = new PlayJob(newJob);
 						newJob = null;
+						pCtrl.setJob(currentJob);
 	    			}
 	    			else{
 	    				currentJob = new PlayJob(job);
+						pCtrl.setJob(currentJob);
 						Main.jlog.log(Level.INFO, "Play rollover....");
 	    			}
 	    		}
