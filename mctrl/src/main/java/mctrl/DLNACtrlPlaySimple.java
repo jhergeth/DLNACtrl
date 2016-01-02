@@ -14,18 +14,63 @@ import org.fourthline.cling.support.avtransport.callback.SetAVTransportURI;
 import org.fourthline.cling.support.model.item.Item;
 
 public class DLNACtrlPlaySimple {
+	private enum s { running, idle };
 	private PlayJob newJob = null;
 	private PlayJob job = null;
 	private DLNACtrl ctrl = null;
+	private s status = s.idle;
 
-	public DLNACtrlPlaySimple(DLNACtrl c, PlayJob newJob) {
+	public DLNACtrlPlaySimple(DLNACtrl c) {
 		this.ctrl = c;
-		this.job = newJob;
+		this.job = null;
+		status = s.idle;
 	}
 	
 	public void setJob( PlayJob job ){
-		this.job = job;
+		if(status == s.idle)
+			this.job = job;
+		else
+			newJob = job;
 	}
+	
+	public PlayJob getJob(){
+		return job;
+	}
+
+	public void jumpForward() {
+		if(job.checkJob() && status != s.idle){
+			job.jumpForward();
+		}
+	}
+
+	public void jumpBack() {
+		if(job.checkJob() && status != s.idle){
+			job.jumpBack();
+		}
+	}
+
+	public void stop() {
+		if(job.checkJob() &&status != s.idle){
+			job.setRest(Integer.MAX_VALUE);
+		}
+	}
+
+	public void play() {
+		if(job.checkJob() && status != s.idle){
+			job.setRest(job.getTotal());
+		}
+	}
+	
+	public void restart(String devName){
+		if(job != null && status != s.idle){
+			
+		}
+	}
+	
+	public boolean isRunning(){
+		return status != s.idle;
+	}
+
 	
 	private long timeToLong(String s) {
 		long result = 0;
@@ -42,12 +87,13 @@ public class DLNACtrlPlaySimple {
 
 	
 	public void doPlay() {
-		ControlPoint ctrlPoint = DLNACtrl.upnpService.getControlPoint();
-
+		if(job == null)
+			return;
+		
 		Main.jlog.log(Level.INFO, "Starting rendering of playlist " + job.getPlaylist());
 
 		int dirsize = 0;
-		int m = 1;
+		int m = 0;
 		do{
 		
 			job.setItem(m);
@@ -75,18 +121,21 @@ public class DLNACtrlPlaySimple {
 
 				if(cnt%12 == 0){
 					// Broadcast a search message for all devices
-					ctrlPoint.search(new STAllHeader());
+					ctrl.sendSearch();
 				}
 				try {
 					Main.jlog.log(Level.INFO, "Waiting 5 seconds for devices...");
 					Thread.sleep(5000);
-					if(job.hasStatus("stop"))
+					if(job.hasStatus("stop")){
+						status = s.idle;
 						return;
+					}
 					
 				} catch (InterruptedException e) {
 				}
 				theScreen = ctrl.findRenderer(job.getScreen());		// find a renderer
 				theSource = ctrl.findVault(job.getServer());;		// find media vault
+				ctrl.browseTo(theSource, job.getPlaylist());
 				item = ctrl.getItemFromServer( theSource, job.getPlaylist(), m );
 				dirsize = ctrl.getDirSize(theSource, job.getPlaylist());
 				cnt++;
@@ -97,10 +146,12 @@ public class DLNACtrlPlaySimple {
 			Main.jlog.log(Level.INFO, ".... now rendering "+job.getItemTitle() + " from " + job.getPlaylist() + " to " + job.getScreen());
 
 			try {										// render media on renderer
+				status = s.running;
 				job.setStatus("startPlay");
 				playItemOnScreen(theScreen, item, job.getPictTime());
-				if(job.hasStatus("stop"))
-					return;
+				if(job.hasStatus("stop")){
+					status = s.idle;
+				}
 				
 			} catch (InterruptedException | ExecutionException e) {
 				// TODO Auto-generated catch block
@@ -109,6 +160,8 @@ public class DLNACtrlPlaySimple {
 			}
 
 			if(newJob != null){
+				job = newJob;
+				newJob = null;
 				return;
 			}
 			if( job.hasStatus("medium finished")){
@@ -120,9 +173,11 @@ public class DLNACtrlPlaySimple {
 			}
 			else
 				m--;
+			
 			m++;
 		}while(m < dirsize);
 
+		status = s.idle;
 		Main.jlog.log(Level.INFO, "Rendering of playlist " + job.getPlaylist() + " finished..");
 	}
 
@@ -159,7 +214,7 @@ public class DLNACtrlPlaySimple {
 
 			if(job.hasStatus("screen restarted")){
 				Main.jlog.log(Level.INFO, "Resend URI after screen restart " + job.getRest() + " seconds media=" + uri);
-				return;
+				uri = sendURIandPlay(theScreen, item);
 			}
 			job.setStatus("playing");
 			time = job.getRest();
@@ -183,6 +238,7 @@ public class DLNACtrlPlaySimple {
 				// Something was wrong
 				job.setStatus("failure during SetAVTransport");
 				Main.jlog.log(Level.WARNING, "Send media " + uri + " to " + theScreen.getDevice().getDetails().getFriendlyName() + " failed!");
+				status = s.idle;
 			}
 		};
 //		fa = upnpService.getControlPoint().execute(setAVTransportURIAction);
@@ -201,6 +257,7 @@ public class DLNACtrlPlaySimple {
 				// Something was wrong
 				job.setStatus("failure during sendPlay");
 				Main.jlog.log(Level.WARNING, "Playing media " + uri + " on " + theScreen.getDevice().getDetails().getFriendlyName() + " failed!");
+				status = s.idle;
 			}
 		};
 //		fa = upnpService.getControlPoint().execute(playAction);

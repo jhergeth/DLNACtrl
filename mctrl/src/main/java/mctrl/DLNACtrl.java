@@ -43,19 +43,21 @@ public class DLNACtrl {
 
 	public static final String version = "0.2.10";
 	public static UpnpService upnpService = null;
+	public static ControlPoint ctrlPoint = null;
 
-	final long PICTIME = 30*1000;
-	public PlayJob currentJob;
-	public PlayJob newJob = null;
-	public DLNACtrlPlaySimple pJob = null;
+	final long PICTIME = 100*1000;
+	public DLNACtrlPlaySimple pCtrl = null;
 	Registry registry = null;
 	UDAServiceType typeContent = null;
 	UDAServiceType typeRenderer = null;
 	
 	ExecutorService execPlay;
+	
+	private Future<?> waitForPlay = null;
 
 	public DLNACtrl() {
 		super();
+		pCtrl = new DLNACtrlPlaySimple(this);
 	}
 
 	/**
@@ -63,11 +65,11 @@ public class DLNACtrl {
 	 * @return
 	 */
 	public static <T> Future<T> execAction( ActionCallback cb){
-		 return upnpService.getControlPoint().execute(cb);
+		 return ctrlPoint.execute(cb);
 }
 
 	public static void execAction( SubscriptionCallback cb){
-		 upnpService.getControlPoint().execute(cb);
+		ctrlPoint.execute(cb);
 }
 
 	/**
@@ -83,6 +85,7 @@ public class DLNACtrl {
 		// This will create necessary network resources for UPnP right away
 		Main.jlog.log(Level.INFO, "Starting Cling...version: " + version);
 		upnpService = new UpnpServiceImpl(listener);
+		ctrlPoint = upnpService.getControlPoint();
 		registry = upnpService.getRegistry();
 
 		Main.jlog.log(Level.INFO, "Waiting 1 second...");
@@ -98,10 +101,16 @@ public class DLNACtrl {
 		searchUDAServiceType(null);
 
 		execPlay = Executors.newFixedThreadPool(1);
-		currentJob = new PlayJob();
-		newJob = null;
 	}
 
+	public Registry getRegistry(){
+		return registry;
+	}
+	
+	public PlayJob getJob(){
+		return pCtrl.getJob();
+	}
+	
 	public void shutDown() {
 		// Release all resources and advertise BYEBYE to other UPnP devices
 		Main.jlog.log(Level.INFO, "Stopping Cling...");
@@ -128,6 +137,16 @@ public class DLNACtrl {
 	}
 
 
+	public void sendSearch() {
+		ctrlPoint.search(new STAllHeader());
+	}
+	
+	public void restart(String devName){
+		if(waitForPlay != null && waitForPlay.isDone()){
+			startPlayThread();
+		}
+	}
+
 	/**
 	 * search UDAServiceType
 	 * @param t	String	send a search message for service type
@@ -136,11 +155,11 @@ public class DLNACtrl {
 	public void searchUDAServiceType(final String t) {
 		// Send a search message to all devices, search for MediaServer, they should respond soon
 		if(t == null ){
-			upnpService.getControlPoint().search(new STAllHeader());
+			sendSearch();
 		}
 		else{
 			UDAServiceType type = new UDAServiceType(t);
-			upnpService.getControlPoint().search(new UDAServiceTypeHeader(type));
+			ctrlPoint.search(new UDAServiceTypeHeader(type));
 		}
 	}
 
@@ -154,7 +173,7 @@ public class DLNACtrl {
 			renderer = registry.getDevices(typeRenderer);
 			if(renderer.isEmpty()){
 				// Broadcast a search message for all devices
-				upnpService.getControlPoint().search(new STAllHeader());
+				sendSearch();
 				try {
 					Main.jlog.log(Level.INFO, "Waiting 5 seconds for renderer...");
 					Thread.sleep(5000);
@@ -252,6 +271,7 @@ public class DLNACtrl {
 
 			}
 		}
+		Main.jlog.log(Level.WARNING, "Did NOT find " + sDevice);
 		return null;
 	}
 
@@ -288,8 +308,12 @@ public class DLNACtrl {
 		final AtomicReference<DirContent> res = new AtomicReference<DirContent>();
 
 		doBrowse(s, from, (ActionInvocation actionInvocation, DIDLContent didl) -> {
-			Main.jlog.log(Level.INFO, "browseTo: from="+ from + "\n" + printDIDL(didl) + "\n" );
-			res.set(new DirContent(from, from, didl.getItems(), didl.getContainers()));
+			if( didl != null){
+				Main.jlog.log(Level.INFO, "browseTo: from="+ from + "\n" + printDIDL(didl) + "\n" );
+				res.set(new DirContent(from, from, didl.getItems(), didl.getContainers()));
+			}
+			else
+				res.set(null);
 			return;
 		});
 
@@ -345,12 +369,21 @@ public class DLNACtrl {
 	}
 
 	public int getDirSize(PlayJob job) {
-		if(job.checkJob())
+		if(job != null && job.checkJob())
 			return getDirSize(findVault(job.getServer()), job.getPlaylist());
 		return 0;
 	}
 
 	public int getDirSize(Service theSource, final String from) {
+		if(theSource == null ){
+			Main.jlog.log(Level.WARNING, "getDirSize: no source defined!");
+			return 0;
+		}
+		if(from == null || from.length() == 0){
+			Main.jlog.log(Level.WARNING, "getDirSize: no from defined!");
+			return 0;
+		}
+
 		final AtomicReference<Integer> res = new AtomicReference<Integer>();
 
 		doBrowse(theSource, from, (ActionInvocation actionInvocation, DIDLContent didl) -> {
@@ -400,8 +433,10 @@ public class DLNACtrl {
 	}
 
 	public Item getItemFromServer(Service server, String playlist, int item) {
-		if( server == null)
+		if( server == null){
+			Main.jlog.log(Level.WARNING, "getItemFromServer: No server!");
 			return null;
+		}
 		
 		//		Service theSource, final String from, final int no){
 		final AtomicReference<Item> res = new AtomicReference<Item>();
@@ -412,7 +447,12 @@ public class DLNACtrl {
 			@Override
 			public void received(ActionInvocation actionInvocation, DIDLContent didl) {
 				List<Item> items = didl.getItems();
-				res.set(items.get(0));
+				if( items.size() > 0 ){
+					res.set(items.get(0));
+				}
+				else{
+					res.set(null);
+				}
 			}
 
 			@Override
@@ -424,9 +464,11 @@ public class DLNACtrl {
 					UpnpResponse operation,
 					String defaultMsg) {
 				// Something wasn't right...
+				Main.jlog.log(Level.WARNING, "getItemFromServer: " + defaultMsg + " \nwhile:\nserver="+server.getDevice().getDisplayString() + "\nplaylist=" + playlist + "\nitem="+item );
+				res.set(null);
 			}
 		};
-		Future<String> f = upnpService.getControlPoint().execute(doBrowseAction);
+		Future<String> f = ctrlPoint.execute(doBrowseAction);
 
 		try {
 			f.get();
@@ -442,32 +484,24 @@ public class DLNACtrl {
 	}
 
 	public void jumpForward() {
-		if(currentJob.checkJob() && !currentJob.getStatus().equalsIgnoreCase("idle")){
-			currentJob.jumpForward();
-		}
+		pCtrl.jumpForward();
 	}
 
 	public void jumpBack() {
-		if(currentJob.checkJob() && !currentJob.getStatus().equalsIgnoreCase("idle")){
-			currentJob.jumpBack();
-		}
+		pCtrl.jumpBack();
 	}
 
 	public void stop() {
-		if(currentJob.checkJob() && !currentJob.getStatus().equalsIgnoreCase("idle")){
-			currentJob.setRest(Integer.MAX_VALUE);
-		}
+		pCtrl.stop();
 	}
 
 	public void play() {
-		if(currentJob.checkJob() && !currentJob.getStatus().equalsIgnoreCase("idle")){
-			currentJob.setRest(currentJob.getTotal());
-		}
+		pCtrl.play();
 	}
 
-	public PlayJob getStatus() {
-		return currentJob;
-	}
+//	public PlayJob getStatus() {
+//		return currentJob;
+//	}
 
 	/**
 	 * Play job/playlist
@@ -492,39 +526,29 @@ public class DLNACtrl {
 			return;
 		}
 
-		if(currentJob.hasStatus("idle")){
-			currentJob = new PlayJob(job);
-			DLNACtrlPlaySimple pCtrl = new DLNACtrlPlaySimple(this, currentJob);
+		if(waitForPlay == null || waitForPlay.isDone()){
+			pCtrl.setJob(job);
 			
-	    	Future<?> f = execPlay.submit(() -> {
-				Main.jlog.log(Level.INFO, "Starting play job...");
-	    		while(!currentJob.hasStatus("stop") ){
-	    			pCtrl.doPlay();
-					if(currentJob.hasStatus("stop")){
-						Main.jlog.log(Level.INFO, "Play aborted due to 'stop' status.");
-						return;
-					}
-	    			if(newJob != null){
-						Main.jlog.log(Level.INFO, "Playlist " + currentJob.getPlaylist() + " changed to " + newJob.getPlaylist());
-						currentJob = new PlayJob(newJob);
-						newJob = null;
-						pCtrl.setJob(currentJob);
-	    			}
-	    			else{
-	    				currentJob = new PlayJob(job);
-						pCtrl.setJob(currentJob);
-						Main.jlog.log(Level.INFO, "Play rollover....");
-	    			}
-	    		}
-				Main.jlog.log(Level.INFO, "Play ended due to 'stop' status.");
-	    	});
+	    	startPlayThread();
 		}
 		else{
 			Main.jlog.log(Level.INFO, "Rendering is already running, attempting to change playlist.");
-			newJob = job;
-			newJob.setItem(0);
-			currentJob.setRest(0);
+			pCtrl.setJob(job);
 		}
+	}
+
+	public void startPlayThread() {
+		waitForPlay = execPlay.submit(() -> {
+			Main.jlog.log(Level.INFO, "Starting play job...");
+			while(true){
+				pCtrl.doPlay();
+				if(!pCtrl.isRunning()){
+					Main.jlog.log(Level.INFO, "Play aborted due to 'stop' status.");
+					return;
+				}
+				Main.jlog.log(Level.INFO, "Play rollover....");
+			}
+		});
 	}
 
 

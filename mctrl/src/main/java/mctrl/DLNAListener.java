@@ -28,11 +28,7 @@ public class DLNAListener implements RegistryListener {
 
 	public void remoteDeviceAdded(Registry registry, RemoteDevice device) {
 		Main.jlog.log(Level.INFO, "Device added: " + device.getDisplayString());
-		if(theCtrl.currentJob != null){
-			if(device.getDetails().getFriendlyName().equalsIgnoreCase(theCtrl.currentJob.getScreen())){
-				theCtrl.currentJob.setStatus("screen restarted");
-			}
-		}
+		theCtrl.restart(device.getDetails().getFriendlyName());
 		/*            	RemoteService[] srv = device.findServices();
     	for( RemoteService ss : srv ){
 			jLog.log(Level.INFO, "Found service: " + ss.toString() + " @ " + device.getDisplayString());
@@ -41,7 +37,8 @@ public class DLNAListener implements RegistryListener {
     			jLog.log(Level.INFO, "Found action: " + a.getName() + " @ " + device.getDisplayString());
     		}
     	}
-		 */            }
+		 */            
+	}
 
 	public void remoteDeviceUpdated(Registry registry, RemoteDevice device) {
 //		Main.jlog.log(Level.INFO, "Device updated: " + device.getDisplayString());
