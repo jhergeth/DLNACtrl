@@ -171,8 +171,11 @@ public class DLNACtrlPlaySimple {
 				}
 				job.jumpClear();
 			}
-			else
+			else{					// something went wrong ....
 				m--;
+				// Broadcast a search message for all devices
+				ctrl.sendSearch();
+			}
 			
 			m++;
 		}while(m < dirsize);
@@ -215,10 +218,13 @@ public class DLNACtrlPlaySimple {
 			if(job.hasStatus("screen restarted")){
 				Main.jlog.log(Level.INFO, "Resend URI after screen restart " + job.getRest() + " seconds media=" + uri);
 				uri = sendURIandPlay(theScreen, item);
+				if(!job.hasStatus("sendPlay")){
+					return;
+				}
 			}
 			job.setStatus("playing");
 			time = job.getRest();
-			Main.jlog.log(Level.INFO, "Waiting " + time + " seconds media=" + uri);
+			Main.jlog.log(Level.INFO, "Waiting " + time/1000 + "." + time%1000 + " seconds media=" + uri);
 		}
 		job.setStatus("medium finished");
 		job.setRest(0);
