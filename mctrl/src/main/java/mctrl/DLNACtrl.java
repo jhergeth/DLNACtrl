@@ -511,18 +511,18 @@ public class DLNACtrl {
 	 * @param duration
 	 */
 	public void play(String sRenderer, String sDir, String theId, int duration) {
-		play( new PlayJob("starting", theId, sRenderer, sDir, 0, duration, duration, duration ), duration);
+		play( new PlayJob("starting", theId, sRenderer, sDir, 0, duration, duration, duration ));
 	}
 
-	public void play(PlayJob job, int duration) {
+	public void play(PlayJob job) {
 		Main.jlog.log(Level.INFO, "Play " + job.getPlaylist() + " from " + job.getServer() + " to " + job.getScreen());
 
 		if(!job.checkJob()){
 			return;
 		}
 
-		if(duration < 5000 ){
-			Main.jlog.log(Level.WARNING, "Duration below 5 seconds! {" + duration +"}");
+		if(job.getPictTime() < 5000 ){
+			Main.jlog.log(Level.WARNING, "Duration below 5 seconds! {" + job.getPictTime() +"}");
 			return;
 		}
 
