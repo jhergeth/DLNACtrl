@@ -121,7 +121,12 @@ public class PlayJob{
 		return item;
 	}
 	public void setItem(int item) {
-		this.item = item;
+		if( item >= 0){
+			this.item = item;
+		}
+		else{
+			Main.jlog.log(Level.SEVERE, "Trying to set negative item number: "+item);
+		}
 	}
 	public int getPictTime() {
 		return pictTime;
