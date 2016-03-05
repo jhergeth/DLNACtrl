@@ -198,7 +198,7 @@ public class DLNACtrlPlaySimple {
 		String dur = item.getFirstResource().getDuration();
 		if(dur != null){
 			Main.jlog.log(Level.INFO, "Duration of "+ uri + " is: " + dur);
-			time = timeToLong(dur) + 100;
+			time = timeToLong(dur) + 1500;
 		}
 
 		if( time < 5000)
