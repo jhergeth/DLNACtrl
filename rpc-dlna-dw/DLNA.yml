@@ -1,0 +1,17 @@
+# Logging settings.
+logging:
+
+  # The default level of all loggers. Can be OFF, ERROR, WARN, INFO, DEBUG, TRACE, or ALL.
+  level: ERROR
+  
+  # Logger-specific levels.
+  loggers:
+
+    # Overrides the level of com.example.dw.Thing and sets it to DEBUG.
+    "name.hergeth.dlna": DEBUG
+    target: stdout
+
+
+defaultTimeout: 1000
+
+
