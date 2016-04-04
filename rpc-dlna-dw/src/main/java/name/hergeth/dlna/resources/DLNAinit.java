@@ -10,7 +10,7 @@ import javax.ws.rs.core.MediaType;
 import com.codahale.metrics.annotation.Timed;
 
 import name.hergeth.dlna.DLNAApplication;
-import name.hergeth.dlna.api.OneString;
+import name.hergeth.dlna.api.SimpleResult;
 import name.hergeth.dlna.core.DLNACtrl;
 
 @Path("/init")
@@ -26,7 +26,7 @@ public class DLNAinit {
 
     @GET
     @Timed
-    public OneString init() {
-        return new OneString(counter.incrementAndGet(), dlnac.isInit()?"yes":"no");
+    public SimpleResult init() {
+        return new SimpleResult(counter.incrementAndGet(), dlnac.isInit()?"yes":"no");
     }
 }

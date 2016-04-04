@@ -9,13 +9,15 @@ import javax.ws.rs.core.MediaType;
 
 import org.fourthline.cling.model.meta.Device;
 import org.fourthline.cling.support.model.container.Container;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.codahale.metrics.annotation.Timed;
 
 import name.hergeth.dlna.DLNAApplication;
-import name.hergeth.dlna.api.OneString;
+import name.hergeth.dlna.api.SimpleResult;
 import name.hergeth.dlna.api.StringArray;
-import name.hergeth.dlna.api.StringPair;
+import name.hergeth.dlna.api.IdName;
 import name.hergeth.dlna.core.DLNACtrl;
 
 public class getDevice {
@@ -29,21 +31,26 @@ public class getDevice {
         this.counter = new AtomicLong();
     }
 
-    public StringPair getDevices() {
-    	Device[] dc = dlnac.getDevices(type);
+    public IdName getDevices() {
+        Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.resources");
+
+        Device[] dc = dlnac.getDevices(type);
     	if( dc == null || dc.length == 0){
-    		String[][] sa = new String[1][1];
-    		sa[0][0] = new String("no devices of type: "+type+" found.");
-    		return  new StringPair(counter.incrementAndGet(), sa);
+    		String[] id = {"error"};
+    		String[] n = {"no devices of type: "+type+" found."};
+    		jlog.info("Did not find devices of type "+type);
+    		return  new IdName(counter.incrementAndGet(), id, n);
     	}
     	
-    	String[][] dm = new String[dc.length][2];
+		String[] id = new String[dc.length];
+		String[] n = new String[dc.length];
     	int i = 0;
     	for(Device c : dc ){
-    		dm[i][0] = c.getIdentity().getUdn().getIdentifierString();
-    		dm[i++][1] = c.getDetails().getFriendlyName();
+    		id[i] = c.getIdentity().getUdn().getIdentifierString();
+    		n[i++] = c.getDetails().getFriendlyName();
+    		jlog.info("Found device:"+id[i-1]+" name:"+n[i-1]);
     	}
 
-        return new StringPair(counter.incrementAndGet(), dm);
+		return  new IdName(counter.incrementAndGet(), id, n);
     }
 }

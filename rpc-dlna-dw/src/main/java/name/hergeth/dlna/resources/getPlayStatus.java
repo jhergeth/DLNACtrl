@@ -11,8 +11,8 @@ import javax.ws.rs.core.MediaType;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Optional;
 
-import name.hergeth.dlna.api.OneString;
-import name.hergeth.dlna.api.StringPair;
+import name.hergeth.dlna.api.SimpleResult;
+import name.hergeth.dlna.api.IdName;
 import name.hergeth.dlna.api.StringPlaylist;
 import name.hergeth.dlna.core.DLNACtrl;
 import name.hergeth.dlna.core.PlayJob;

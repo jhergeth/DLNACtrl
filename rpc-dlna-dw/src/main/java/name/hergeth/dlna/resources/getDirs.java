@@ -15,7 +15,7 @@ import org.fourthline.cling.support.model.container.Container;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Optional;
 
-import name.hergeth.dlna.api.StringPair;
+import name.hergeth.dlna.api.IdName;
 import name.hergeth.dlna.core.DLNACtrl;
 import name.hergeth.dlna.core.DirContent;
 
@@ -38,33 +38,34 @@ public class getDirs {
 //    }
     @GET
     @Timed
-    public StringPair getDirs(@QueryParam("name") String name, @QueryParam("from") Optional<String> f) {
+    public IdName getDirs(@QueryParam("name") String name, @QueryParam("from") Optional<String> f) {
     	try{
 	        final String from = f.or("0");
 	
 	    	Device dev = dlnac.findDeviceUID(name);
 	    	
 	    	if( dev == null ){
-	    		String[][] sa = new String[1][1];
-	    		sa[0][0] = new String("device "+name+" not found.");
-	    		return  new StringPair(counter.incrementAndGet(), sa);
+	    		String[] id = {"error"};
+	    		String[] n = {"device "+name+" not found."};
+	    		return  new IdName(counter.incrementAndGet(), id, n);
 	    	}
 	    	
 	    	DirContent dc = dlnac.getDirContent(dev, from);
 	    	if( dc.getDirsSize() == 0){
-	    		String[][] sa = new String[1][1];
-	    		sa[0][0] = new String("no more directories in "+from +".");
-	    		return  new StringPair(counter.incrementAndGet(), sa);
+	    		String[] id = {"error"};
+	    		String[] n = {"no more directories in "+from +"."};
+	    		return  new IdName(counter.incrementAndGet(), id, n);
 	    	}
 	    	
 	    	Container[] dirs = dc.getDirs();
-	    	String[][] dm = new String[dirs.length][2];
+			String[] id = new String[dirs.length];
+			String[] n = new String[dirs.length];
 	    	int i = 0;
 	    	for(Container c : dirs ){
-	    		dm[i][0] = c.getId();
-	    		dm[i++][1] = c.getTitle();
+	    		id[i] =  c.getId();
+	    		n[i++] = c.getTitle();
 	    	}
-	        return new StringPair(counter.incrementAndGet(), dm);
+    		return  new IdName(counter.incrementAndGet(), id, n);
     	}catch(Exception e){
     		throw new WebApplicationException(e.getMessage());
     	}

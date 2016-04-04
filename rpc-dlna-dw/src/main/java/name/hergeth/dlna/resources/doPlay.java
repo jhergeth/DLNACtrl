@@ -11,7 +11,7 @@ import javax.ws.rs.core.MediaType;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Optional;
 
-import name.hergeth.dlna.api.OneString;
+import name.hergeth.dlna.api.SimpleResult;
 import name.hergeth.dlna.core.DLNACtrl;
 
 @Path("/play")
@@ -27,7 +27,7 @@ public class doPlay {
 
     @GET
     @Timed
-    public OneString play(
+    public SimpleResult play(
     		@QueryParam("dest") String dest, 
     		@QueryParam("src") String src,
     		@QueryParam("itm") String itm,
@@ -39,6 +39,6 @@ public class doPlay {
     	final Integer no = n.or(1);
 
     	dlnac.play(dest, src, itm, len, no);
-        return new OneString(counter.incrementAndGet(), "Play send!");
+        return new SimpleResult(counter.incrementAndGet(), "Play send!");
     }
 }

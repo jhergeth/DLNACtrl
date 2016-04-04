@@ -7,7 +7,7 @@ import javax.ws.rs.core.MediaType;
 
 import com.codahale.metrics.annotation.Timed;
 
-import name.hergeth.dlna.api.StringPair;
+import name.hergeth.dlna.api.IdName;
 import name.hergeth.dlna.core.DLNACtrl;
 
 @Path("/getRenderer")
@@ -20,7 +20,7 @@ public class getRenderer  extends getDevice{
 
     @GET
     @Timed
-    public StringPair getDevices() {
+    public IdName getDevices() {
     	return super.getDevices();
     }
 }
