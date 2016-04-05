@@ -7,6 +7,8 @@ import org.fourthline.cling.support.model.item.Item;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 
 public class DirContent {
 
@@ -29,11 +31,17 @@ public class DirContent {
 		jlog.info("DirContent <"+s+">: "+t+" created.");
 	}
 	
+    @JsonProperty
 	public String getId() {
 		return id;
 	}
 	public void setId(String id) {
 		this.id = id;
+	}
+	
+    @JsonProperty
+	public String getTitle() {
+		return title;
 	}
 	public void setDirs(List<Container> dirs) {
 		this.dirs = dirs;
@@ -51,6 +59,7 @@ public class DirContent {
 		}
 	}
 
+    @JsonProperty
 	public Item[] getItems(){
 		Item[] ia = new Item[1];
 		return items.toArray(ia);
@@ -69,11 +78,13 @@ public class DirContent {
 		return dirs.size();
 	}
 
+    @JsonProperty
 	public Container[] getDirs(){
 		Container[] ca = new Container[1];
 		return dirs.toArray(ca);
 	}
-	public String[] getDirsS(){
+
+    public String[] getDirsS(){
 		String[] ca = new String[dirs.size()];
 		int i = 0;
 		for(Container c : dirs){

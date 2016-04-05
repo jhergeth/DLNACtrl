@@ -8,7 +8,7 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import name.hergeth.dlna.core.DLNACtrl;
 import name.hergeth.dlna.health.TemplateHealthCheck;
-import name.hergeth.dlna.resources.DLNAinit;
+import name.hergeth.dlna.resources.doCmd;
 import name.hergeth.dlna.resources.doPlay;
 import name.hergeth.dlna.resources.getDirs;
 import name.hergeth.dlna.resources.getPlayStatus;
@@ -44,7 +44,7 @@ public class DLNAApplication extends Application<DLNAConfiguration> {
         final TemplateHealthCheck healthCheck = new TemplateHealthCheck("");
         environment.healthChecks().register("template", healthCheck);
 
-        environment.jersey().register(new DLNAinit(dlnac));
+        environment.jersey().register(new doCmd(dlnac));
         environment.jersey().register(new getRenderer(dlnac));
         environment.jersey().register(new getServer(dlnac));
         environment.jersey().register(new getDirs(dlnac));

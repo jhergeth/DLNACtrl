@@ -15,6 +15,7 @@ import org.fourthline.cling.support.model.container.Container;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Optional;
 
+import name.hergeth.dlna.api.DirCont;
 import name.hergeth.dlna.api.IdName;
 import name.hergeth.dlna.core.DLNACtrl;
 import name.hergeth.dlna.core.DirContent;
@@ -38,34 +39,19 @@ public class getDirs {
 //    }
     @GET
     @Timed
-    public IdName getDirs(@QueryParam("name") String name, @QueryParam("from") Optional<String> f) {
+    public DirCont getDirs(@QueryParam("name") String name, @QueryParam("from") Optional<String> f) {
     	try{
 	        final String from = f.or("0");
 	
 	    	Device dev = dlnac.findDeviceUID(name);
 	    	
 	    	if( dev == null ){
-	    		String[] id = {"error"};
-	    		String[] n = {"device "+name+" not found."};
-	    		return  new IdName(counter.incrementAndGet(), id, n);
+	    		throw new WebApplicationException("No device <"+name+"> found.");
 	    	}
 	    	
 	    	DirContent dc = dlnac.getDirContent(dev, from);
-	    	if( dc.getDirsSize() == 0){
-	    		String[] id = {"error"};
-	    		String[] n = {"no more directories in "+from +"."};
-	    		return  new IdName(counter.incrementAndGet(), id, n);
-	    	}
 	    	
-	    	Container[] dirs = dc.getDirs();
-			String[] id = new String[dirs.length];
-			String[] n = new String[dirs.length];
-	    	int i = 0;
-	    	for(Container c : dirs ){
-	    		id[i] =  c.getId();
-	    		n[i++] = c.getTitle();
-	    	}
-    		return  new IdName(counter.incrementAndGet(), id, n);
+    		return  new DirCont(counter.incrementAndGet(), dc);
     	}catch(Exception e){
     		throw new WebApplicationException(e.getMessage());
     	}
