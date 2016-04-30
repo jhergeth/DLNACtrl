@@ -35,7 +35,7 @@ public class doCmd {
     		) {
     	switch(cm){
     	case "init":
-            return new SimpleResult(counter.incrementAndGet(), dlnac.isInit()?"yes":"no");
+            return new SimpleResult(counter.incrementAndGet(), dlnac.init()?"yes":"no");
     	case "jump":
 	        final Integer val = n.or(1);
 

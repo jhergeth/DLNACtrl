@@ -37,8 +37,11 @@ public class DLNACtrlPlaySimple {
 	public void setJob(PlayJob job) {
 		if (status == s.idle)
 			this.job = job;
-		else
+		else{
 			newJob = job;
+			status = s.idle;
+			job.setRestTime(0);
+		}
 	}
 
 	public PlayJob getJob() {
@@ -131,6 +134,11 @@ public class DLNACtrlPlaySimple {
 				Thread.sleep(5000);
 				if (job.hasStatus("stop")) {
 					status = s.idle;
+					return;
+				}
+				if (newJob != null) {
+					job = newJob;
+					newJob = null;
 					return;
 				}
 				theScreen = ctrl.findRenderer(job.getScreen()); // find a renderer

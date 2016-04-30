@@ -39,7 +39,7 @@ import io.dropwizard.lifecycle.Managed;
 
 public class DLNACtrl implements Managed{
 
-	public static final String version = "0.2.10";
+	public static final String version = "0.3.1";
 	public UpnpService upnpService = null;
 	public ControlPoint ctrlPoint = null;
 	public ExecutorService execPlay;
@@ -57,6 +57,8 @@ public class DLNACtrl implements Managed{
 	public DLNACtrl(ExecutorService esrv) {
 		super();
 		execPlay = esrv;
+
+		pCtrl = new DLNACtrlPlaySimple(this);
 	}
 
 
@@ -103,16 +105,11 @@ public class DLNACtrl implements Managed{
 		typeRenderer = new UDAServiceType("AVTransport");
 		typeContent = new UDAServiceType("ContentDirectory");
 		searchUDAServiceType(null);
-
-		pCtrl = new DLNACtrlPlaySimple(this);
 	}
 
 	@Override
 	public void stop() throws Exception {
-		stopPlay();
-
-		// Release all resources and advertise BYEBYE to other UPnP devices
-		jlog.info("Stopping Cling...");
+		stopCling();
 
 		// Shutdown executors
 		try {
@@ -129,12 +126,27 @@ public class DLNACtrl implements Managed{
 			jlog.info( "shutdown finished");
 		}
 
-		upnpService.shutdown();
-		ctrlPoint = null;
 		execPlay = null;
 	}
 
-	public boolean isInit(){
+
+	private void stopCling() {
+		stopPlay();
+
+		// Release all resources and advertise BYEBYE to other UPnP devices
+		jlog.info("Stopping Cling...");
+		upnpService.shutdown();
+		ctrlPoint = null;
+	}
+
+	public boolean init(){
+		stopCling();
+		try {
+			start();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		return upnpService != null && ctrlPoint != null && registry != null && execPlay != null;
 	}
 
@@ -541,7 +553,7 @@ public class DLNACtrl implements Managed{
 		}
 	}
 
-	public void startPlayThread() {
+	private  void startPlayThread() {
 		waitForPlay = execPlay.submit(() -> {
 			jlog.info("Starting play job...");
 			while (!execPlay.isShutdown()) {
@@ -551,14 +563,15 @@ public class DLNACtrl implements Managed{
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 					jlog.info("Play aborted due to exception.");
-					return;
+					break;
 				}
 				if (!pCtrl.isRunning()) {
 					jlog.info("Play aborted due to 'stop' status.");
-					return;
+					break;
 				}
 				jlog.info("Play rollover....");
 			}
+			waitForPlay = null;
 		});
 	}
 

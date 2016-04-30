@@ -39,7 +39,7 @@ public class getDirs {
 //    }
     @GET
     @Timed
-    public DirCont getDirs(@QueryParam("name") String name, @QueryParam("from") Optional<String> f) {
+    public DirCont getDirs(@QueryParam("name") String name, @QueryParam("itm") Optional<String> f) {
     	try{
 	        final String from = f.or("0");
 	
