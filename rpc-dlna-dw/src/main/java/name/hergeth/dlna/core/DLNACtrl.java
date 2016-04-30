@@ -536,6 +536,7 @@ public class DLNACtrl implements Managed{
 		jlog.info("Play " + job.getPlaylist() + " from " + job.getServer() + " to " + job.getScreen());
 
 		if (!job.checkJob()) {
+			jlog.error("Cant play bogus job.....");
 			return;
 		}
 
@@ -564,13 +565,18 @@ public class DLNACtrl implements Managed{
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 					jlog.info("Play aborted due to exception.");
-					break;
+					pCtrl.stop();
 				}
-				if (!pCtrl.isRunning()) {
-					jlog.info("Play aborted due to 'stop' status.");
-					break;
+				if ((!pCtrl.isRunning()) || (pCtrl.getJob() == null )) {
+					try {
+						execPlay.wait(1000);
+					} catch (Exception e) {
+					}
+					jlog.info("idle loop....");
 				}
-				jlog.info("Play rollover....");
+				else{
+					jlog.info("Play rollover....");
+				}
 			}
 			waitForPlay = null;
 		});

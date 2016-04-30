@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 
 public class DLNACtrlPlaySimple {
 	private enum s {
-		running, idle
+		running, idle, starting
 	};
 
 	private PlayJob newJob = null;
@@ -29,9 +29,9 @@ public class DLNACtrlPlaySimple {
 			this.job = job;
 		else {
 			newJob = job;
-			status = s.idle;
 			job.setRestTime(0);
 		}
+		status = s.idle;
 	}
 
 	public PlayJob getJob() {
@@ -53,6 +53,9 @@ public class DLNACtrlPlaySimple {
 	public void stop() {
 		if (job.checkJob() && status != s.idle) {
 			job.setRestTime(0);
+		} else {
+			job = null;
+			status = s.idle;
 		}
 	}
 
@@ -64,7 +67,7 @@ public class DLNACtrlPlaySimple {
 
 	public void restart(String devName) {
 		if (job != null && status != s.idle) {
-			int t = job.getTotalTime()-job.getRestTime();
+			int t = job.getTotalTime() - job.getRestTime();
 			job.setRestTime(t > 0 ? t : 0);
 		}
 	}
@@ -86,66 +89,61 @@ public class DLNACtrlPlaySimple {
 		return result;
 	}
 
+	@SuppressWarnings("rawtypes")
 	public void doPlay() throws InterruptedException, ExecutionException {
 		if (job == null)
 			return;
 
 		jlog.info("Starting rendering of playlist " + job.getPlaylist());
 
+		Service theScreen = null;
+		Service theSource = null;
 		int dirsize = 0;
 		int m = job.itemNo;
-		do {
+		do {		// loop through all items in the playlist
 
 			job.setItemNo(m);
 
-			@SuppressWarnings("rawtypes")
-			Service theScreen = ctrl.findRenderer(job.getScreen()); // find
-																			// a
-																			// renderer
-			jlog.warn("rendering service " + (theScreen == null ? "not" : "") + " found!");
-
-			Service<?, ?> theSource = ctrl.findVault(job.getServer()); // find
-																		// media
-																		// vault
-			jlog.warn("media vault " + (theSource == null ? "not" : "") + " found!");
-
-			dirsize = ctrl.getDirSize(theSource, job.getPlaylist());
 			int cnt = 0;
-			while ((theScreen == null || theSource == null || dirsize == 0) && !ctrl.getExecPlay().isShutdown()) {
+			do { // get all needed devices
+				theScreen = ctrl.findRenderer(job.getScreen()); // find a renderer
 				if (theScreen == null) {
 					jlog.warn("No rendering service found!");
 					job.setStatus("renderer mising");
 				}
+
+				theSource = ctrl.findVault(job.getServer()); // find media vault
 				if (theSource == null) {
 					jlog.warn("No media directory found!");
 					job.setStatus("media directory mising");
 				}
 
-				if (cnt % 12 == 0) {
-					// Broadcast a search message for all devices
-					ctrl.sendSearch();
-				}
-
-				jlog.info("Waiting 5 seconds for devices...");
-				Thread.sleep(5000);
-				if (job.hasStatus("stop")) {
-					status = s.idle;
-					return;
-				}
-				if (newJob != null) {
-					job = newJob;
-					newJob = null;
-					return;
-				}
-				theScreen = ctrl.findRenderer(job.getScreen()); // find a
-																// renderer
-				theSource = ctrl.findVault(job.getServer()); // find media vault
-				ctrl.browseTo(theSource, job.getPlaylist());
 				dirsize = ctrl.getDirSize(theSource, job.getPlaylist());
-				cnt++;
-			}
-			if (ctrl.getExecPlay().isShutdown())
-				return;
+				if ((theScreen == null || theSource == null || dirsize == 0)) {
+
+					if (cnt % 10 == 0) {
+						ctrl.sendSearch();	// Broadcast a search message for all devices every 20 seconds
+					}
+					if (ctrl.getExecPlay().isShutdown())
+						return;				// the whole thread is shutting down, .....
+
+					jlog.info("Waiting 2 seconds for devices...");
+					Thread.sleep(2000);
+					if (newJob != null) {	// oh´, there is a new playjob, lets do that
+						job = newJob;
+						newJob = null;
+					}
+					if (job.hasStatus("stop")) {
+						status = s.idle;	// we are done here
+						return;
+					}
+
+					cnt++;
+				}
+				else	// we found all devices, so go on with using them
+					break;
+
+			} while (true);
 
 			job.setListLength(dirsize);
 			job.setItemNo(m % dirsize);
@@ -160,14 +158,17 @@ public class DLNACtrlPlaySimple {
 			status = s.running;
 			job.setStatus("startPlay");
 			playItemOnScreen(theScreen, item, job.getPictTime());
+
+			if (ctrl.getExecPlay().isShutdown())
+				return;				// the whole thread is shutting down, .....
 			if (job.hasStatus("stop")) {
-				status = s.idle;
+				status = s.idle;	// we shall stop the playlist
+				return;
 			}
 
-			if (newJob != null) {
+			if (newJob != null) {	// change of plans, new playlist has arrived
 				job = newJob;
 				newJob = null;
-				return;
 			}
 			if (job.hasStatus("medium finished")) {
 				m = job.getItemNo();
@@ -182,7 +183,7 @@ public class DLNACtrlPlaySimple {
 			}
 
 			m++;
-		} while (m < dirsize && !ctrl.getExecPlay().isShutdown());
+		} while (m < dirsize);
 
 		status = s.idle;
 		jlog.info("Rendering of playlist " + job.getPlaylist() + " finished..");
@@ -211,7 +212,10 @@ public class DLNACtrlPlaySimple {
 		job.setRestTime((int) (time));
 		jlog.info("Sleeping " + time / 1000 + " seconds media=" + uri);
 
-		while (time > 0 && !ctrl.getExecPlay().isShutdown()) {
+		while (time > 0 ) {
+			if (ctrl.getExecPlay().isShutdown())
+				return;				// the whole thread is shutting down, .....
+
 			try {
 				job.setRestTime((int) (time - 1000));
 				Thread.sleep(1000);
