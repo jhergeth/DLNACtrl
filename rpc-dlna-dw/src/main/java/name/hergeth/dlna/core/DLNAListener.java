@@ -8,7 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DLNAListener implements RegistryListener {
-    private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
+	private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
 
 	DLNACtrl theCtrl;
 

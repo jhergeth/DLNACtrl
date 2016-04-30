@@ -15,7 +15,6 @@ import org.fourthline.cling.support.model.item.Item;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 public class DLNACtrlPlaySimple {
 	private enum s {
 		running, idle
@@ -25,8 +24,7 @@ public class DLNACtrlPlaySimple {
 	private PlayJob job = null;
 	private DLNACtrl ctrl = null;
 	private s status = s.idle;
-    private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
-
+	private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
 
 	public DLNACtrlPlaySimple(DLNACtrl c) {
 		this.ctrl = c;
@@ -37,7 +35,7 @@ public class DLNACtrlPlaySimple {
 	public void setJob(PlayJob job) {
 		if (status == s.idle)
 			this.job = job;
-		else{
+		else {
 			newJob = job;
 			status = s.idle;
 			job.setRestTime(0);
@@ -107,11 +105,15 @@ public class DLNACtrlPlaySimple {
 
 			job.setItemNo(m);
 
-			Service<?, ?> theScreen = ctrl.findRenderer(job.getScreen()); // find a renderer
-			jlog.warn("rendering service "+(theScreen==null?"not":"")+" found!");
-			
-			Service<?, ?> theSource = ctrl.findVault(job.getServer()); // find media vault
-			jlog.warn("media vault "+(theSource==null?"not":"")+" found!");
+			Service<?, ?> theScreen = ctrl.findRenderer(job.getScreen()); // find
+																			// a
+																			// renderer
+			jlog.warn("rendering service " + (theScreen == null ? "not" : "") + " found!");
+
+			Service<?, ?> theSource = ctrl.findVault(job.getServer()); // find
+																		// media
+																		// vault
+			jlog.warn("media vault " + (theSource == null ? "not" : "") + " found!");
 
 			dirsize = ctrl.getDirSize(theSource, job.getPlaylist());
 			int cnt = 0;
@@ -141,17 +143,18 @@ public class DLNACtrlPlaySimple {
 					newJob = null;
 					return;
 				}
-				theScreen = ctrl.findRenderer(job.getScreen()); // find a renderer
-				theSource = ctrl.findVault(job.getServer());	// find media vault
+				theScreen = ctrl.findRenderer(job.getScreen()); // find a
+																// renderer
+				theSource = ctrl.findVault(job.getServer()); // find media vault
 				ctrl.browseTo(theSource, job.getPlaylist());
 				dirsize = ctrl.getDirSize(theSource, job.getPlaylist());
 				cnt++;
 			}
-			if(ctrl.getExecPlay().isShutdown())
+			if (ctrl.getExecPlay().isShutdown())
 				return;
-			
+
 			job.setListLength(dirsize);
-			job.setItemNo(m%dirsize);
+			job.setItemNo(m % dirsize);
 			m = job.getItemNo();
 			Item item = ctrl.getItemFromServer(theSource, job.getPlaylist(), m);
 			jlog.info("Rendering service and media diretory and item found!");
@@ -194,7 +197,7 @@ public class DLNACtrlPlaySimple {
 	public void playItemOnScreen(Service theScreen, Item item, int duration)
 			throws InterruptedException, ExecutionException {
 		String uri = item.getFirstResource().getValue();
-		
+
 		if (!ctrl.sendURIandPlay(theScreen, item)) {
 			return;
 		}
@@ -234,6 +237,5 @@ public class DLNACtrlPlaySimple {
 		job.setStatus("medium finished");
 		job.setRestTime(0);
 	}
-
 
 }

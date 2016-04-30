@@ -18,27 +18,23 @@ import name.hergeth.dlna.core.DLNACtrl;
 @Produces(MediaType.APPLICATION_JSON)
 public class doPlay {
 	private final DLNACtrl dlnac;
-    private final AtomicLong counter;
+	private final AtomicLong counter;
 
-    public doPlay(DLNACtrl c) {
-    	dlnac = c;
-        this.counter = new AtomicLong();
-    }
+	public doPlay(DLNACtrl c) {
+		dlnac = c;
+		this.counter = new AtomicLong();
+	}
 
-    @GET
-    @Timed
-    public SimpleResult play(
-    		@QueryParam("dest") String dest, 
-    		@QueryParam("src") String src,
-    		@QueryParam("itm") String itm,
-    		@QueryParam("len") int len,
-    		@QueryParam("no") Optional<Integer> n
-    		
-    		) {
+	@GET
+	@Timed
+	public SimpleResult play(@QueryParam("dest") String dest, @QueryParam("src") String src,
+			@QueryParam("itm") String itm, @QueryParam("len") int len, @QueryParam("no") Optional<Integer> n
 
-    	final Integer no = n.or(1);
+	) {
 
-    	dlnac.play(dest, src, itm, len, no);
-        return new SimpleResult(counter.incrementAndGet(), "Play send!");
-    }
+		final Integer no = n.or(1);
+
+		dlnac.play(dest, src, itm, len, no);
+		return new SimpleResult(counter.incrementAndGet(), "Play send!");
+	}
 }

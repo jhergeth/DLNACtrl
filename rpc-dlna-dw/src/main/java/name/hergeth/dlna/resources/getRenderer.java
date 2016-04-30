@@ -12,15 +12,15 @@ import name.hergeth.dlna.core.DLNACtrl;
 
 @Path("/getRenderer")
 @Produces(MediaType.APPLICATION_JSON)
-public class getRenderer  extends getDevice{
+public class getRenderer extends getDevice {
 
-	public getRenderer(DLNACtrl c ) {
+	public getRenderer(DLNACtrl c) {
 		super(c, "AVTransport");
-    }
+	}
 
-    @GET
-    @Timed
-    public IdName getDevices() {
-    	return super.getDevices();
-    }
+	@GET
+	@Timed
+	public IdName getDevices() {
+		return super.getDevices();
+	}
 }

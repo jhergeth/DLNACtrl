@@ -21,19 +21,19 @@ import name.hergeth.dlna.core.PlayJob;
 @Produces(MediaType.APPLICATION_JSON)
 public class getPlayStatus {
 	private final DLNACtrl dlnac;
-    private final AtomicLong counter;
+	private final AtomicLong counter;
 
-    public getPlayStatus(DLNACtrl c) {
-    	dlnac = c;
-        this.counter = new AtomicLong();
-    }
+	public getPlayStatus(DLNACtrl c) {
+		dlnac = c;
+		this.counter = new AtomicLong();
+	}
 
-    @GET
-    @Timed
-    public StringPlaylist status() {
+	@GET
+	@Timed
+	public StringPlaylist status() {
 
-    	PlayJob pj = dlnac.getJob();
+		PlayJob pj = dlnac.getJob();
 
-        return new StringPlaylist(counter.incrementAndGet(), pj);
-    }
+		return new StringPlaylist(counter.incrementAndGet(), pj);
+	}
 }

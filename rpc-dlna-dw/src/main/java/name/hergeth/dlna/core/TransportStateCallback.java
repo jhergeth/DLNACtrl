@@ -19,8 +19,7 @@ public class TransportStateCallback extends SubscriptionCallback {
 	private static DLNACtrl ctrl = null;
 
 	private TransportState theState = TransportState.TRANSITIONING;
-    private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
-	
+	private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
 
 	public TransportState getTheState() {
 		return theState;

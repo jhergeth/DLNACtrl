@@ -4,7 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class PlayJob {
-    private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
+	private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
 
 	String status;
 	String playlist;
@@ -105,7 +105,8 @@ public class PlayJob {
 
 	public void setStatus(String status) {
 		this.status = status;
-		// DLNAInit.jlog.log(Level.INFO, "New status of job " + playlist + " on " +
+		// DLNAInit.jlog.log(Level.INFO, "New status of job " + playlist + " on
+		// " +
 		// screen + ": " + status);
 	}
 
@@ -153,7 +154,7 @@ public class PlayJob {
 		if (item >= 0) {
 			this.itemNo = item;
 		} else {
-			jlog.error( "Trying to set negative item number: " + item);
+			jlog.error("Trying to set negative item number: " + item);
 		}
 	}
 

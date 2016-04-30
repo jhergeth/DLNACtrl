@@ -20,32 +20,29 @@ import name.hergeth.dlna.core.DLNACtrl;
 @Produces(MediaType.APPLICATION_JSON)
 public class doCmd {
 	private final DLNACtrl dlnac;
-    private final AtomicLong counter;
+	private final AtomicLong counter;
 
-    public doCmd(DLNACtrl c) {
-    	dlnac = c;
-        this.counter = new AtomicLong();
-    }
+	public doCmd(DLNACtrl c) {
+		dlnac = c;
+		this.counter = new AtomicLong();
+	}
 
-    @GET
-    @Timed
-    public SimpleResult cmd(
-    		@QueryParam("do") String cm, 
-    		@QueryParam("no") Optional<Integer> n
-    		) {
-    	switch(cm){
-    	case "init":
-            return new SimpleResult(counter.incrementAndGet(), dlnac.init()?"yes":"no");
-    	case "jump":
-	        final Integer val = n.or(1);
+	@GET
+	@Timed
+	public SimpleResult cmd(@QueryParam("do") String cm, @QueryParam("no") Optional<Integer> n) {
+		switch (cm) {
+		case "init":
+			return new SimpleResult(counter.incrementAndGet(), dlnac.init() ? "yes" : "no");
+		case "jump":
+			final Integer val = n.or(1);
 
-	        if(val > 0 )
-	        	dlnac.jumpForward();
-	        else
-	        	dlnac.jumpBack();
-	        
-    		return new SimpleResult(counter.incrementAndGet(), "Jumping "+val+" steps.");
-    	}
+			if (val > 0)
+				dlnac.jumpForward();
+			else
+				dlnac.jumpBack();
+
+			return new SimpleResult(counter.incrementAndGet(), "Jumping " + val + " steps.");
+		}
 		throw new WebApplicationException("Unknown parameter value in 'do'.");
-    }
+	}
 }

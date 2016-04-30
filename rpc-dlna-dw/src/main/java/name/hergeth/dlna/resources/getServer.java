@@ -12,15 +12,15 @@ import name.hergeth.dlna.core.DLNACtrl;
 
 @Path("/getServer")
 @Produces(MediaType.APPLICATION_JSON)
-public class getServer extends getDevice{
+public class getServer extends getDevice {
 
-	public getServer(DLNACtrl c ) {
+	public getServer(DLNACtrl c) {
 		super(c, "ContentDirectory");
-    }
+	}
 
-    @GET
-    @Timed
-    public IdName getDevices() {
-    	return super.getDevices();
-    }
+	@GET
+	@Timed
+	public IdName getDevices() {
+		return super.getDevices();
+	}
 }

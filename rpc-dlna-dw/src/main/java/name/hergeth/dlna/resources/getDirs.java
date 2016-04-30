@@ -24,36 +24,38 @@ import name.hergeth.dlna.core.DirContent;
 @Produces(MediaType.APPLICATION_JSON)
 public class getDirs {
 	private final DLNACtrl dlnac;
-    private final AtomicLong counter;
-    
-    public getDirs(DLNACtrl c) {
-    	dlnac = c;
-        this.counter = new AtomicLong();
-    }
+	private final AtomicLong counter;
 
-//    @GET
-//    @Timed
-//    public StringArray getDirs(@QueryParam("devName") String devName, @QueryParam("from") String from) {
-//
-//        return new StringArray(counter.incrementAndGet(), dlnac.devBrowseDir(devName, from));
-//    }
-    @GET
-    @Timed
-    public DirCont getDirs(@QueryParam("name") String name, @QueryParam("itm") Optional<String> f) {
-    	try{
-	        final String from = f.or("0");
-	
-	    	Device dev = dlnac.findDeviceUID(name);
-	    	
-	    	if( dev == null ){
-	    		throw new WebApplicationException("No device <"+name+"> found.");
-	    	}
-	    	
-	    	DirContent dc = dlnac.getDirContent(dev, from);
-	    	
-    		return  new DirCont(counter.incrementAndGet(), dc);
-    	}catch(Exception e){
-    		throw new WebApplicationException(e.getMessage());
-    	}
-    }
+	public getDirs(DLNACtrl c) {
+		dlnac = c;
+		this.counter = new AtomicLong();
+	}
+
+	// @GET
+	// @Timed
+	// public StringArray getDirs(@QueryParam("devName") String devName,
+	// @QueryParam("from") String from) {
+	//
+	// return new StringArray(counter.incrementAndGet(),
+	// dlnac.devBrowseDir(devName, from));
+	// }
+	@GET
+	@Timed
+	public DirCont getDirs(@QueryParam("name") String name, @QueryParam("itm") Optional<String> f) {
+		try {
+			final String from = f.or("0");
+
+			Device dev = dlnac.findDeviceUID(name);
+
+			if (dev == null) {
+				throw new WebApplicationException("No device <" + name + "> found.");
+			}
+
+			DirContent dc = dlnac.getDirContent(dev, from);
+
+			return new DirCont(counter.incrementAndGet(), dc);
+		} catch (Exception e) {
+			throw new WebApplicationException(e.getMessage());
+		}
+	}
 }

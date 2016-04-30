@@ -17,39 +17,39 @@ import name.hergeth.dlna.resources.getServer;
 
 public class DLNAApplication extends Application<DLNAConfiguration> {
 	private DLNACtrl dlnac;
-	
-    public static void main(String[] args) throws Exception {
-        new DLNAApplication().run(args);
-    }
 
-    @Override
-    public String getName() {
-        return "DLNA";
-    }
+	public static void main(String[] args) throws Exception {
+		new DLNAApplication().run(args);
+	}
 
-    @Override
-    public void initialize(Bootstrap<DLNAConfiguration> bootstrap) {
-        // nothing to do yet
-    }
+	@Override
+	public String getName() {
+		return "DLNA";
+	}
 
-    @Override
-    public void run(DLNAConfiguration configuration, Environment environment) {
-		
+	@Override
+	public void initialize(Bootstrap<DLNAConfiguration> bootstrap) {
+		// nothing to do yet
+	}
+
+	@Override
+	public void run(DLNAConfiguration configuration, Environment environment) {
+
 		ExecutorServiceBuilder eb = environment.lifecycle().executorService(getName());
 		ExecutorService esrv = eb.build();
 
 		dlnac = new DLNACtrl(esrv);
 		environment.lifecycle().manage(dlnac);
-		
-        final TemplateHealthCheck healthCheck = new TemplateHealthCheck("");
-        environment.healthChecks().register("template", healthCheck);
 
-        environment.jersey().register(new doCmd(dlnac));
-        environment.jersey().register(new getRenderer(dlnac));
-        environment.jersey().register(new getServer(dlnac));
-        environment.jersey().register(new getDirs(dlnac));
-        environment.jersey().register(new doPlay(dlnac));
-        environment.jersey().register(new getPlayStatus(dlnac));
-    }
+		final TemplateHealthCheck healthCheck = new TemplateHealthCheck("");
+		environment.healthChecks().register("template", healthCheck);
+
+		environment.jersey().register(new doCmd(dlnac));
+		environment.jersey().register(new getRenderer(dlnac));
+		environment.jersey().register(new getServer(dlnac));
+		environment.jersey().register(new getDirs(dlnac));
+		environment.jersey().register(new doPlay(dlnac));
+		environment.jersey().register(new getPlayStatus(dlnac));
+	}
 
 }
