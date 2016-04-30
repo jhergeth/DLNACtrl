@@ -10,18 +10,17 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 
 import org.fourthline.cling.model.meta.Device;
-import org.fourthline.cling.support.model.container.Container;
 
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Optional;
 
 import name.hergeth.dlna.api.DirCont;
-import name.hergeth.dlna.api.IdName;
 import name.hergeth.dlna.core.DLNACtrl;
 import name.hergeth.dlna.core.DirContent;
 
 @Path("/getDirs")
 @Produces(MediaType.APPLICATION_JSON)
+@SuppressWarnings("rawtypes")
 public class getDirs {
 	private final DLNACtrl dlnac;
 	private final AtomicLong counter;
@@ -41,7 +40,7 @@ public class getDirs {
 	// }
 	@GET
 	@Timed
-	public DirCont getDirs(@QueryParam("name") String name, @QueryParam("itm") Optional<String> f) {
+	public DirCont getDirectory(@QueryParam("name") String name, @QueryParam("itm") Optional<String> f) {
 		try {
 			final String from = f.or("0");
 

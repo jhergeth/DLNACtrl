@@ -14,10 +14,9 @@ import org.fourthline.cling.support.model.TransportState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@SuppressWarnings("rawtypes")
 public class TransportStateCallback extends SubscriptionCallback {
 	private static Map<Service, TransportStateCallback> attached = new HashMap<Service, TransportStateCallback>();
-	private static DLNACtrl ctrl = null;
-
 	private TransportState theState = TransportState.TRANSITIONING;
 	private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
 
@@ -55,6 +54,7 @@ public class TransportStateCallback extends SubscriptionCallback {
 		// assertNull(reason);
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public void eventReceived(GENASubscription sub) {
 		try {

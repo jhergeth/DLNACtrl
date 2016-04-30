@@ -1,16 +1,8 @@
 package name.hergeth.dlna.core;
 
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
-import org.fourthline.cling.controlpoint.ActionCallback;
-import org.fourthline.cling.controlpoint.SubscriptionCallback;
-import org.fourthline.cling.model.action.ActionInvocation;
-import org.fourthline.cling.model.message.UpnpResponse;
 import org.fourthline.cling.model.meta.Service;
-import org.fourthline.cling.support.avtransport.callback.Play;
-import org.fourthline.cling.support.avtransport.callback.SetAVTransportURI;
 import org.fourthline.cling.support.model.item.Item;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +52,7 @@ public class DLNACtrlPlaySimple {
 
 	public void stop() {
 		if (job.checkJob() && status != s.idle) {
-			job.setRestTime(Integer.MAX_VALUE);
+			job.setRestTime(0);
 		}
 	}
 
@@ -72,7 +64,8 @@ public class DLNACtrlPlaySimple {
 
 	public void restart(String devName) {
 		if (job != null && status != s.idle) {
-
+			int t = job.getTotalTime()-job.getRestTime();
+			job.setRestTime(t > 0 ? t : 0);
 		}
 	}
 
@@ -105,7 +98,8 @@ public class DLNACtrlPlaySimple {
 
 			job.setItemNo(m);
 
-			Service<?, ?> theScreen = ctrl.findRenderer(job.getScreen()); // find
+			@SuppressWarnings("rawtypes")
+			Service theScreen = ctrl.findRenderer(job.getScreen()); // find
 																			// a
 																			// renderer
 			jlog.warn("rendering service " + (theScreen == null ? "not" : "") + " found!");
@@ -194,7 +188,7 @@ public class DLNACtrlPlaySimple {
 		jlog.info("Rendering of playlist " + job.getPlaylist() + " finished..");
 	}
 
-	public void playItemOnScreen(Service theScreen, Item item, int duration)
+	public void playItemOnScreen(@SuppressWarnings("rawtypes") Service theScreen, Item item, int duration)
 			throws InterruptedException, ExecutionException {
 		String uri = item.getFirstResource().getValue();
 

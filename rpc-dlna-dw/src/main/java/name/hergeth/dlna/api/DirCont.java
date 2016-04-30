@@ -1,16 +1,13 @@
 package name.hergeth.dlna.api;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import name.hergeth.dlna.core.DirContent;
-
 import java.util.List;
 
 import org.fourthline.cling.support.model.DIDLObject;
 import org.fourthline.cling.support.model.Res;
-import org.fourthline.cling.support.model.container.Container;
-import org.fourthline.cling.support.model.item.Item;
-import org.hibernate.validator.constraints.Length;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import name.hergeth.dlna.core.DirContent;
 
 public class DirCont {
 	private long id;

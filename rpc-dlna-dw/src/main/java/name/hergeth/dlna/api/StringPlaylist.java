@@ -4,8 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import name.hergeth.dlna.core.PlayJob;
 
-import org.hibernate.validator.constraints.Length;
-
 public class StringPlaylist {
 	private long id;
 

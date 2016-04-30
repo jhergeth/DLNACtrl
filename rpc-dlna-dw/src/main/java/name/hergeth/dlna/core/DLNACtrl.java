@@ -37,7 +37,8 @@ import org.slf4j.LoggerFactory;
 
 import io.dropwizard.lifecycle.Managed;
 
-public class DLNACtrl implements Managed {
+@SuppressWarnings("rawtypes")
+public class DLNACtrl implements Managed{
 
 	public static final String version = "0.3.1";
 	public UpnpService upnpService = null;
@@ -50,8 +51,9 @@ public class DLNACtrl implements Managed {
 	UDAServiceType typeContent = null;
 	UDAServiceType typeRenderer = null;
 
+
 	private Future<?> waitForPlay = null;
-	private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
+    private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
 
 	public DLNACtrl(ExecutorService esrv) {
 		super();
@@ -59,6 +61,7 @@ public class DLNACtrl implements Managed {
 
 		pCtrl = new DLNACtrlPlaySimple(this);
 	}
+
 
 	public static String getVersion() {
 		return version;
@@ -71,7 +74,7 @@ public class DLNACtrl implements Managed {
 	public ExecutorService getExecPlay() {
 		return execPlay;
 	}
-
+	
 	public Registry getRegistry() {
 		return registry;
 	}
@@ -80,6 +83,7 @@ public class DLNACtrl implements Managed {
 		return pCtrl.getJob();
 	}
 
+	
 	@Override
 	public void start() throws Exception {
 		// UPnP discovery is asynchronous, we need a callback
@@ -117,14 +121,15 @@ public class DLNACtrl implements Managed {
 			jlog.warn("tasks interrupted");
 		} finally {
 			if (!execPlay.isTerminated()) {
-				jlog.warn("cancel non-finished tasks");
+				jlog.warn( "cancel non-finished tasks");
 			}
 			execPlay.shutdownNow();
-			jlog.info("shutdown finished");
+			jlog.info( "shutdown finished");
 		}
 
 		execPlay = null;
 	}
+
 
 	private void stopCling() {
 		stopPlay();
@@ -135,7 +140,7 @@ public class DLNACtrl implements Managed {
 		ctrlPoint = null;
 	}
 
-	public boolean init() {
+	public boolean init(){
 		stopCling();
 		try {
 			start();
@@ -275,7 +280,7 @@ public class DLNACtrl implements Managed {
 
 	public Service findService(String sDevice, UDAServiceType type) {
 		Device d = findDeviceUID(sDevice);
-		if (d != null) {
+		if(d != null ){
 			jlog.info("Found " + d.getDetails().getFriendlyName() + " to be " + sDevice);
 			return d.findService(type);
 		}
@@ -290,27 +295,24 @@ public class DLNACtrl implements Managed {
 		return null;
 	}
 
-	public Device findDeviceUID(String uid) {
+	public Device findDeviceUID(String uid ){
 		return registry.getDevice(new UDN(uid), false);
 	}
-
-	public String[] devBrowseItem(final String devName, final String from)
-			throws InterruptedException, ExecutionException {
+	
+	public String[] devBrowseItem(final String devName, final String from) throws InterruptedException, ExecutionException {
 		Device server = registry.getDevice(new UDN(devName), false);
 		DirContent dirc = getDirContent(server, from);
 
 		return dirc.getItemsS();
 	}
 
-	public String[] devBrowseDir(final String devName, final String from)
-			throws InterruptedException, ExecutionException {
+	public String[] devBrowseDir(final String devName, final String from) throws InterruptedException, ExecutionException {
 		Device server = registry.getDevice(new UDN(devName), false);
 		DirContent dirc = getDirContent(server, from);
 		return dirc.getDirsS();
 	}
 
-	public DirContent getDirContent(final Device server, final String from)
-			throws InterruptedException, ExecutionException {
+	public DirContent getDirContent(final Device server, final String from) throws InterruptedException, ExecutionException {
 		Service srv = server.findService(typeContent);
 
 		if (srv != null) {
@@ -390,8 +392,7 @@ public class DLNACtrl implements Managed {
 		return res.get();
 	}
 
-	protected void doBrowse(Service s, String from, BiConsumer<ActionInvocation, DIDLContent> func)
-			throws InterruptedException, ExecutionException {
+	protected void doBrowse(Service s, String from, BiConsumer<ActionInvocation, DIDLContent> func) throws InterruptedException, ExecutionException {
 
 		ActionCallback doBrowseAction = new Browse(s, from, BrowseFlag.DIRECT_CHILDREN) {
 			@Override
@@ -417,8 +418,7 @@ public class DLNACtrl implements Managed {
 		return;
 	}
 
-	public Item getItemFromServer(Service server, String playlist, int item)
-			throws InterruptedException, ExecutionException {
+	public Item getItemFromServer(Service server, String playlist, int item) throws InterruptedException, ExecutionException {
 		if (server == null) {
 			jlog.warn("getItemFromServer: No server!");
 			return null;
@@ -480,8 +480,8 @@ public class DLNACtrl implements Managed {
 
 	public boolean sendURIandPlay(Service theScreen, Item item) throws InterruptedException, ExecutionException {
 
-		TransportStateCallback.add(ctrlPoint, theScreen, 10);
-
+		TransportStateCallback.add(ctrlPoint, theScreen, 10); 
+		
 		String uri = item.getFirstResource().getValue();
 		final AtomicReference<Boolean> res = new AtomicReference<Boolean>();
 		res.set(false);
@@ -492,8 +492,8 @@ public class DLNACtrl implements Managed {
 			@Override
 			public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg) {
 				// Something was wrong
-				jlog.warn("Send media " + uri + " to " + theScreen.getDevice().getDetails().getFriendlyName()
-						+ " failed!");
+				jlog.warn("Send media " + uri + " to "
+						+ theScreen.getDevice().getDetails().getFriendlyName() + " failed!");
 				res.set(true);
 			}
 		};
@@ -509,8 +509,8 @@ public class DLNACtrl implements Managed {
 			@Override
 			public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg) {
 				// Something was wrong
-				jlog.warn("Playing media " + uri + " on " + theScreen.getDevice().getDetails().getFriendlyName()
-						+ " failed!");
+				jlog.warn("Playing media " + uri + " on "
+						+ theScreen.getDevice().getDetails().getFriendlyName() + " failed!");
 				res.set(true);
 			}
 		};
@@ -554,7 +554,7 @@ public class DLNACtrl implements Managed {
 		}
 	}
 
-	private void startPlayThread() {
+	private  void startPlayThread() {
 		waitForPlay = execPlay.submit(() -> {
 			jlog.info("Starting play job...");
 			while (!execPlay.isShutdown()) {

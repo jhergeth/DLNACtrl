@@ -12,7 +12,6 @@ import javax.ws.rs.core.MediaType;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Optional;
 
-import name.hergeth.dlna.DLNAApplication;
 import name.hergeth.dlna.api.SimpleResult;
 import name.hergeth.dlna.core.DLNACtrl;
 

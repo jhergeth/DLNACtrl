@@ -2,24 +2,14 @@ package name.hergeth.dlna.resources;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
-
 import org.fourthline.cling.model.meta.Device;
-import org.fourthline.cling.support.model.container.Container;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.codahale.metrics.annotation.Timed;
-
-import name.hergeth.dlna.DLNAApplication;
-import name.hergeth.dlna.api.SimpleResult;
-import name.hergeth.dlna.api.StringArray;
 import name.hergeth.dlna.api.IdName;
 import name.hergeth.dlna.core.DLNACtrl;
 
+@SuppressWarnings("rawtypes")
 public class getDevice {
 	private final DLNACtrl dlnac;
 	private final AtomicLong counter;

@@ -1,7 +1,6 @@
 package name.hergeth.dlna.api;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.hibernate.validator.constraints.Length;
 
 public class StringArray {
 	private long id;
