@@ -4,7 +4,7 @@
   <groupId>hergeth</groupId>
   <artifactId>rpc-dlna-dw</artifactId>
   <name>rpc-dlna-dw</name>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>0.3.1-SNAPSHOT</version>
   <build>
     <plugins>
       <plugin>

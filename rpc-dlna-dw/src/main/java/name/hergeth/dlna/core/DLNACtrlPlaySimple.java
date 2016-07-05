@@ -183,7 +183,9 @@ public class DLNACtrlPlaySimple {
 			}
 
 			m++;
-		} while (m < dirsize);
+		} while (m <= dirsize);
+		
+		job.setItemNo(1); //point to start of list.
 
 		status = s.idle;
 		jlog.info("Rendering of playlist " + job.getPlaylist() + " finished..");
