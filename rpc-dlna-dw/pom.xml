@@ -16,9 +16,6 @@
 		<repository>
 			<id>4thline-repo</id>
 			<url>http://4thline.org/m2</url>
-			<snapshots>
-				<enabled>true</enabled>
-			</snapshots>
 		</repository>
 	</repositories>
 
@@ -33,10 +30,31 @@
 			<artifactId>cling-support</artifactId>
 			<version>${cling.version}</version>
 		</dependency>
+
 		<dependency>
 			<groupId>io.dropwizard</groupId>
 			<artifactId>dropwizard-core</artifactId>
 			<version>${dropwizard.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.seamless</groupId>
+			<artifactId>seamless-http</artifactId>
+			<version>${seamless.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.seamless</groupId>
+			<artifactId>seamless-swing</artifactId>
+			<version>${seamless.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.seamless</groupId>
+			<artifactId>seamless-util</artifactId>
+			<version>${seamless.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.seamless</groupId>
+			<artifactId>seamless-xml</artifactId>
+			<version>${seamless.version}</version>
 		</dependency>
 	</dependencies>
 	<build>
