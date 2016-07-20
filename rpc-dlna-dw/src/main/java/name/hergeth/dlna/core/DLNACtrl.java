@@ -43,6 +43,7 @@ import io.dropwizard.lifecycle.Managed;
 public class DLNACtrl implements Managed{
 
     private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
+    ExecutorService eSrvc;
 
 	public UpnpService upnpService = null;
 	public ControlPoint ctrlPoint = null;
@@ -57,7 +58,8 @@ public class DLNACtrl implements Managed{
 
 	public DLNACtrl(ExecutorService esrv) {
 		super();
-		pCtrl = new DLNACtrlPlaySimple(this, esrv);
+		eSrvc = esrv;
+		pCtrl = new DLNACtrlPlaySimple(this, eSrvc);
 	}
 
 
@@ -450,48 +452,41 @@ public class DLNACtrl implements Managed{
 	}
 
 	public void jumpForward(String r) {
-		if(r.length()==0)
+		DLNACtrlPlaySimple p = mapPCtrl.get(r);
+		if(p != null)
+			p.jumpForward();
+		else
 			pCtrl.jumpForward();
-		else{
-			DLNACtrlPlaySimple p = mapPCtrl.get(r);
-			if(p != null)
-				p.jumpForward();
-		}
+				
 	}
 
 	public void jumpBack() {
 		pCtrl.jumpBack();
 	}
 	public void jumpBack(String r) {
-		if(r.length()==0)
+		DLNACtrlPlaySimple p = mapPCtrl.get(r);
+		if(p != null)
+			p.jumpBack();
+		else
 			pCtrl.jumpBack();
-		else{
-			DLNACtrlPlaySimple p = mapPCtrl.get(r);
-			if(p != null)
-				p.jumpBack();
-		}
 	}
 
 
 	public void stopPlay(String r) {
-		if(r.length()==0)
+		DLNACtrlPlaySimple p = mapPCtrl.get(r);
+		if(p != null)
+			p.stop();
+		else
 			pCtrl.stop();
-		else{
-			DLNACtrlPlaySimple p = mapPCtrl.get(r);
-			if(p != null)
-				p.stop();
-		}
 	}
 
 
 	public void play(String r) {
-		if(r.length()==0)
+		DLNACtrlPlaySimple p = mapPCtrl.get(r);
+		if(p != null)
+			p.play();
+		else
 			pCtrl.play();
-		else{
-			DLNACtrlPlaySimple p = mapPCtrl.get(r);
-			if(p != null)
-				p.play();
-		}
 	}
 
 
@@ -564,11 +559,11 @@ public class DLNACtrl implements Managed{
 		
 		DLNACtrlPlaySimple p = mapPCtrl.get(job.getScreen());
 		if(p != null)
-			p.play();
-		else
-			pCtrl.startPlayThread(job);
-		
-
+			p.startPlayThread();
+		else{
+			mapPCtrl.put(job.getScreen(), new DLNACtrlPlaySimple(this, eSrvc));
+			
+		}
 	}
 
 }
