@@ -10,7 +10,7 @@ import name.hergeth.dlna.api.IdName;
 import name.hergeth.dlna.core.DLNACtrl;
 
 @SuppressWarnings("rawtypes")
-public class getDevice {
+public class getDevice extends ResLogger {
 	private final DLNACtrl dlnac;
 	private final AtomicLong counter;
 	private final String type;
@@ -22,8 +22,6 @@ public class getDevice {
 	}
 
 	public IdName getDevices() {
-		Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.resources");
-
 		Device[] dc = dlnac.getDevices(type);
 		if (dc == null || dc.length == 0) {
 			String[] id = { "error" };

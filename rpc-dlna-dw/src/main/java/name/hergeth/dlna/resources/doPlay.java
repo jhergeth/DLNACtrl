@@ -16,7 +16,7 @@ import name.hergeth.dlna.core.DLNACtrl;
 
 @Path("/play")
 @Produces(MediaType.APPLICATION_JSON)
-public class doPlay {
+public class doPlay extends ResLogger {
 	private final DLNACtrl dlnac;
 	private final AtomicLong counter;
 
@@ -31,6 +31,7 @@ public class doPlay {
 			@QueryParam("itm") String itm, @QueryParam("len") int len, @QueryParam("no") Optional<Integer> n
 
 	) {
+		jlog.info("Got play: dest=" + dest + " src=" + src + " itm="+itm + " len="+len+ " no="+n);
 
 		final Integer no = n.or(1);
 

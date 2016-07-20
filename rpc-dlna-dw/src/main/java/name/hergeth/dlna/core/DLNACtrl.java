@@ -1,7 +1,9 @@
 package name.hergeth.dlna.core;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -40,47 +42,47 @@ import io.dropwizard.lifecycle.Managed;
 @SuppressWarnings("rawtypes")
 public class DLNACtrl implements Managed{
 
-	public static final String version = "0.3.1";
+    private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
+
 	public UpnpService upnpService = null;
 	public ControlPoint ctrlPoint = null;
-	public ExecutorService execPlay;
-
-	final long PICTIME = 100 * 1000;
-	public DLNACtrlPlaySimple pCtrl = null;
 	Registry registry = null;
 	UDAServiceType typeContent = null;
 	UDAServiceType typeRenderer = null;
 
-
-	private Future<?> waitForPlay = null;
-    private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
+	final long PICTIME = 100 * 1000;
+	public DLNACtrlPlaySimple pCtrl = null;
+	private Map<String, DLNACtrlPlaySimple> mapPCtrl = new HashMap<>();	
+	
 
 	public DLNACtrl(ExecutorService esrv) {
 		super();
-		execPlay = esrv;
-
-		pCtrl = new DLNACtrlPlaySimple(this);
+		pCtrl = new DLNACtrlPlaySimple(this, esrv);
 	}
 
 
-	public static String getVersion() {
-		return version;
+	public String getVersion() {
+		return getClass().getPackage().getImplementationVersion();
 	}
 
 	public ControlPoint getCtrlPoint() {
 		return ctrlPoint;
 	}
 
-	public ExecutorService getExecPlay() {
-		return execPlay;
-	}
-	
 	public Registry getRegistry() {
 		return registry;
 	}
 
 	public PlayJob getJob() {
 		return pCtrl.getJob();
+	}
+
+	public PlayJob getJob(String renderer) {
+		DLNACtrlPlaySimple p = mapPCtrl.get(renderer);
+		if(p != null)
+			return p.getJob();
+		else
+			return null;
 	}
 
 	
@@ -90,7 +92,7 @@ public class DLNACtrl implements Managed{
 		RegistryListener listener = new DLNAListener(this);
 
 		// This will create necessary network resources for UPnP right away
-		jlog.info("Starting Cling...version: " + version);
+		jlog.info("Starting Cling...version: " + getVersion());
 		upnpService = new UpnpServiceImpl(listener);
 		ctrlPoint = upnpService.getControlPoint();
 		registry = upnpService.getRegistry();
@@ -111,33 +113,21 @@ public class DLNACtrl implements Managed{
 	@Override
 	public void stop() throws Exception {
 		stopCling();
-
-		// Shutdown executors
-		try {
-			jlog.info("attempt to shutdown executor");
-			execPlay.shutdown();
-			execPlay.awaitTermination(11, TimeUnit.SECONDS);
-		} catch (InterruptedException e) {
-			jlog.warn("tasks interrupted");
-		} finally {
-			if (!execPlay.isTerminated()) {
-				jlog.warn( "cancel non-finished tasks");
-			}
-			execPlay.shutdownNow();
-			jlog.info( "shutdown finished");
+		
+		pCtrl.end();
+		ctrlPoint = null;
+		
+		for(DLNACtrlPlaySimple p : mapPCtrl.values()){
+			p.end();
 		}
-
-		execPlay = null;
+		mapPCtrl.clear();
 	}
 
 
 	private void stopCling() {
-		stopPlay();
-
 		// Release all resources and advertise BYEBYE to other UPnP devices
 		jlog.info("Stopping Cling...");
 		upnpService.shutdown();
-		ctrlPoint = null;
 	}
 
 	public boolean init(){
@@ -148,17 +138,17 @@ public class DLNACtrl implements Managed{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		return upnpService != null && ctrlPoint != null && registry != null && execPlay != null;
+		return upnpService != null && ctrlPoint != null && registry != null;
 	}
 
 	public void sendSearch() {
 		ctrlPoint.search(new STAllHeader());
 	}
 
-	public void restart(String devName) {
-		if (waitForPlay != null && waitForPlay.isDone()) {
-			startPlayThread();
-		}
+	public void restart(String r) {
+		DLNACtrlPlaySimple p = mapPCtrl.get(r);
+		if(p != null)
+			p.startPlayThread();
 	}
 
 	/**
@@ -459,27 +449,53 @@ public class DLNACtrl implements Managed{
 		return res.get();
 	}
 
-	public void jumpForward() {
-		pCtrl.jumpForward();
+	public void jumpForward(String r) {
+		if(r.length()==0)
+			pCtrl.jumpForward();
+		else{
+			DLNACtrlPlaySimple p = mapPCtrl.get(r);
+			if(p != null)
+				p.jumpForward();
+		}
 	}
 
 	public void jumpBack() {
 		pCtrl.jumpBack();
 	}
-
-	public void stopPlay() {
-		pCtrl.stop();
+	public void jumpBack(String r) {
+		if(r.length()==0)
+			pCtrl.jumpBack();
+		else{
+			DLNACtrlPlaySimple p = mapPCtrl.get(r);
+			if(p != null)
+				p.jumpBack();
+		}
 	}
 
-	public void play() {
-		pCtrl.play();
+
+	public void stopPlay(String r) {
+		if(r.length()==0)
+			pCtrl.stop();
+		else{
+			DLNACtrlPlaySimple p = mapPCtrl.get(r);
+			if(p != null)
+				p.stop();
+		}
 	}
 
-	// public PlayJob getStatus() {
-	// return currentJob;
-	// }
 
-	public boolean sendURIandPlay(Service theScreen, Item item) throws InterruptedException, ExecutionException {
+	public void play(String r) {
+		if(r.length()==0)
+			pCtrl.play();
+		else{
+			DLNACtrlPlaySimple p = mapPCtrl.get(r);
+			if(p != null)
+				p.play();
+		}
+	}
+
+
+	protected boolean sendURIandPlay(Service theScreen, Item item) throws InterruptedException, ExecutionException {
 
 		TransportStateCallback.add(ctrlPoint, theScreen, 10); 
 		
@@ -533,7 +549,7 @@ public class DLNACtrl implements Managed{
 		play(new PlayJob("starting", theId, sRenderer, sDir, no, duration, duration, duration));
 	}
 
-	public void play(PlayJob job) {
+	private void play(PlayJob job) {
 		jlog.info("Play " + job.getPlaylist() + " from " + job.getServer() + " to " + job.getScreen());
 
 		if (!job.checkJob()) {
@@ -545,42 +561,14 @@ public class DLNACtrl implements Managed{
 			jlog.warn("Duration below 5 seconds! {" + job.getPictTime() + "}");
 			return;
 		}
+		
+		DLNACtrlPlaySimple p = mapPCtrl.get(job.getScreen());
+		if(p != null)
+			p.play();
+		else
+			pCtrl.startPlayThread(job);
+		
 
-		if (waitForPlay == null || waitForPlay.isDone()) {
-			pCtrl.setJob(job);
-
-			startPlayThread();
-		} else {
-			jlog.info("Rendering is already running, attempting to change playlist.");
-			pCtrl.setJob(job);
-		}
-	}
-
-	private  void startPlayThread() {
-		waitForPlay = execPlay.submit(() -> {
-			jlog.info("Starting play job...");
-			while (!execPlay.isShutdown()) {
-				try {
-					pCtrl.doPlay();
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-					jlog.info("Play aborted due to exception.");
-					pCtrl.stop();
-				}
-				if ((!pCtrl.isRunning()) || (pCtrl.getJob() == null )) {
-					try {
-						execPlay.wait(1000);
-					} catch (Exception e) {
-					}
-					jlog.info("idle loop....");
-				}
-				else{
-					jlog.info("Play rollover....");
-				}
-			}
-			waitForPlay = null;
-		});
 	}
 
 }

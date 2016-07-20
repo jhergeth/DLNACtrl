@@ -1,6 +1,9 @@
 package name.hergeth.dlna.core;
 
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.fourthline.cling.model.meta.Service;
 import org.fourthline.cling.support.model.item.Item;
@@ -11,6 +14,8 @@ public class DLNACtrlPlaySimple {
 	private enum s {
 		running, idle, starting
 	};
+	public ExecutorService execPlay;
+	private Future<?> waitForPlay = null;
 
 	private PlayJob newJob = null;
 	private PlayJob job = null;
@@ -18,10 +23,32 @@ public class DLNACtrlPlaySimple {
 	private s status = s.idle;
 	private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
 
-	public DLNACtrlPlaySimple(DLNACtrl c) {
+	public DLNACtrlPlaySimple(DLNACtrl c, ExecutorService esrv) {
+		execPlay = esrv;
+
 		this.ctrl = c;
 		this.job = null;
 		status = s.idle;
+	}
+	
+	public void end()
+	{
+		// Shutdown executors
+		try {
+			jlog.info("attempt to shutdown executor");
+			execPlay.shutdown();
+			execPlay.awaitTermination(11, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			jlog.warn("tasks interrupted");
+		} finally {
+			if (!execPlay.isTerminated()) {
+				jlog.warn( "cancel non-finished tasks");
+			}
+			execPlay.shutdownNow();
+			jlog.info( "shutdown finished");
+		}
+
+		execPlay = null;
 	}
 
 	public void setJob(PlayJob job) {
@@ -124,7 +151,7 @@ public class DLNACtrlPlaySimple {
 					if (cnt % 10 == 0) {
 						ctrl.sendSearch();	// Broadcast a search message for all devices every 20 seconds
 					}
-					if (ctrl.getExecPlay().isShutdown())
+					if (execPlay.isShutdown())
 						return;				// the whole thread is shutting down, .....
 
 					jlog.info("Waiting 2 seconds for devices...");
@@ -159,7 +186,7 @@ public class DLNACtrlPlaySimple {
 			job.setStatus("startPlay");
 			playItemOnScreen(theScreen, item, job.getPictTime());
 
-			if (ctrl.getExecPlay().isShutdown())
+			if (execPlay.isShutdown())
 				return;				// the whole thread is shutting down, .....
 			if (job.hasStatus("stop")) {
 				status = s.idle;	// we shall stop the playlist
@@ -215,7 +242,7 @@ public class DLNACtrlPlaySimple {
 		jlog.info("Sleeping " + time / 1000 + " seconds media=" + uri);
 
 		while (time > 0 ) {
-			if (ctrl.getExecPlay().isShutdown())
+			if (execPlay.isShutdown())
 				return;				// the whole thread is shutting down, .....
 
 			try {
@@ -236,6 +263,44 @@ public class DLNACtrlPlaySimple {
 		}
 		job.setStatus("medium finished");
 		job.setRestTime(0);
+	}
+	
+	public void startPlayThread(PlayJob job) {
+		if (waitForPlay == null || waitForPlay.isDone()) {
+			setJob(job);
+	
+			startPlayThread();
+		} else {
+			jlog.info("Rendering is already running, attempting to change playlist.");
+			setJob(job);
+		}
+	}
+
+	public void startPlayThread() {
+		waitForPlay = execPlay.submit(() -> {
+			jlog.info("Starting play job...");
+			while (!execPlay.isShutdown()) {
+				try {
+					doPlay();
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+					jlog.info("Play aborted due to exception.");
+					stop();
+				}
+				if ((!isRunning()) || (getJob() == null )) {
+					try {
+						execPlay.wait(1000);
+					} catch (Exception e) {
+					}
+					jlog.info("idle loop....");
+				}
+				else{
+					jlog.info("Play rollover....");
+				}
+			}
+			waitForPlay = null;
+		});
 	}
 
 }

@@ -21,7 +21,7 @@ import name.hergeth.dlna.core.DirContent;
 @Path("/getDirs")
 @Produces(MediaType.APPLICATION_JSON)
 @SuppressWarnings("rawtypes")
-public class getDirs {
+public class getDirs extends ResLogger {
 	private final DLNACtrl dlnac;
 	private final AtomicLong counter;
 
@@ -41,6 +41,7 @@ public class getDirs {
 	@GET
 	@Timed
 	public DirCont getDirectory(@QueryParam("name") String name, @QueryParam("itm") Optional<String> f) {
+		jlog.info("Got getDir: name="+name  + " itm="+f);
 		try {
 			final String from = f.or("0");
 

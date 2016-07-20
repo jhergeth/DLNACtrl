@@ -15,7 +15,7 @@ import name.hergeth.dlna.core.PlayJob;
 
 @Path("/pstat")
 @Produces(MediaType.APPLICATION_JSON)
-public class getPlayStatus {
+public class getPlayStatus extends ResLogger {
 	private final DLNACtrl dlnac;
 	private final AtomicLong counter;
 

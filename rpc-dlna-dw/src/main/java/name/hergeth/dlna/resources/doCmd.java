@@ -9,6 +9,9 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Optional;
 
@@ -17,10 +20,10 @@ import name.hergeth.dlna.core.DLNACtrl;
 
 @Path("/cmd")
 @Produces(MediaType.APPLICATION_JSON)
-public class doCmd {
+public class doCmd extends ResLogger {
 	private final DLNACtrl dlnac;
 	private final AtomicLong counter;
-
+    
 	public doCmd(DLNACtrl c) {
 		dlnac = c;
 		this.counter = new AtomicLong();
@@ -28,17 +31,19 @@ public class doCmd {
 
 	@GET
 	@Timed
-	public SimpleResult cmd(@QueryParam("do") String cm, @QueryParam("no") Optional<Integer> n) {
+	public SimpleResult cmd(@QueryParam("do") String cm, @QueryParam("rend") Optional<String> r, @QueryParam("no") Optional<Integer> n) {
+		jlog.info("Got cmd: " + cm + " rend=" + r + " n="+n);
 		switch (cm) {
 		case "init":
 			return new SimpleResult(counter.incrementAndGet(), dlnac.init() ? "yes" : "no");
 		case "jump":
 			final Integer val = n.or(1);
+			final String rend = r.or(""); 
 
 			if (val > 0)
-				dlnac.jumpForward();
+				dlnac.jumpForward(rend);
 			else
-				dlnac.jumpBack();
+				dlnac.jumpBack(rend);
 
 			return new SimpleResult(counter.incrementAndGet(), "Jumping " + val + " steps.");
 		}
