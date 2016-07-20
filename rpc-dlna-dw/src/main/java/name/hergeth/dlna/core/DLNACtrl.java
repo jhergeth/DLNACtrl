@@ -394,7 +394,8 @@ public class DLNACtrl implements Managed{
 
 	protected void doBrowse(Service s, String from, BiConsumer<ActionInvocation, DIDLContent> func) throws InterruptedException, ExecutionException {
 
-		ActionCallback doBrowseAction = new Browse(s, from, BrowseFlag.DIRECT_CHILDREN) {
+//		ActionCallback doBrowseAction = new Browse(s, from, BrowseFlag.DIRECT_CHILDREN) {
+		ActionCallback doBrowseAction = new Browse(s, from, BrowseFlag.DIRECT_CHILDREN, "*", 0l, 9999l ) {
 			@Override
 			public void received(ActionInvocation actionInvocation, DIDLContent didl) {
 				func.accept(actionInvocation, didl);
