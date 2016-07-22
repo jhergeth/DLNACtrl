@@ -16,7 +16,7 @@ import name.hergeth.dlna.api.StringPlaylistArr;
 import name.hergeth.dlna.core.DLNACtrl;
 import name.hergeth.dlna.core.PlayJob;
 
-@Path("/pstat")
+@Path("/pstatall")
 @Produces(MediaType.APPLICATION_JSON)
 public class getPlayStatusArr extends ResLogger {
 	private final DLNACtrl dlnac;

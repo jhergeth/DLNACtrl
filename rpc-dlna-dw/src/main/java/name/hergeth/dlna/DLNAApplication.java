@@ -12,6 +12,7 @@ import name.hergeth.dlna.resources.doCmd;
 import name.hergeth.dlna.resources.doPlay;
 import name.hergeth.dlna.resources.getDirs;
 import name.hergeth.dlna.resources.getPlayStatus;
+import name.hergeth.dlna.resources.getPlayStatusArr;
 import name.hergeth.dlna.resources.getRenderer;
 import name.hergeth.dlna.resources.getServer;
 
@@ -56,6 +57,7 @@ public class DLNAApplication extends Application<DLNAConfiguration> {
 		environment.jersey().register(new getDirs(dlnac));
 		environment.jersey().register(new doPlay(dlnac));
 		environment.jersey().register(new getPlayStatus(dlnac));
+		environment.jersey().register(new getPlayStatusArr(dlnac));
 	}
 
 }
