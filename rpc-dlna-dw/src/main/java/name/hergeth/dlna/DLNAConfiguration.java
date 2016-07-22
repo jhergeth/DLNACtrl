@@ -6,6 +6,7 @@ import io.dropwizard.Configuration;
 
 public class DLNAConfiguration extends Configuration {
 	private String defaultTimeout;
+	private String defaultSavePath;
 
 	@JsonProperty
 	public String getDefaultTimeout() {
@@ -15,6 +16,16 @@ public class DLNAConfiguration extends Configuration {
 	@JsonProperty
 	public void setDefaultTimeout(String defaultTimeout) {
 		this.defaultTimeout = defaultTimeout;
+	}
+
+	@JsonProperty
+	public String getDefaultSavePath() {
+		return defaultSavePath;
+	}
+
+	@JsonProperty
+	public void setDefaultSavePath(String defaultSavePath) {
+		this.defaultSavePath = defaultSavePath;
 	}
 
 }

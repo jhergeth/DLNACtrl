@@ -40,10 +40,10 @@ public class doCmd extends ResLogger {
 			final Integer val = n.or(1);
 			final String rend = r.or(""); 
 
-			if (val > 0)
-				dlnac.jumpForward(rend);
+			if (rend.length() > 0 && val > 0)
+				dlnac.jumpForward(rend, val);
 			else
-				dlnac.jumpBack(rend);
+				dlnac.jumpBack(rend, -val);
 
 			return new SimpleResult(counter.incrementAndGet(), "Jumping " + val + " steps.");
 		}

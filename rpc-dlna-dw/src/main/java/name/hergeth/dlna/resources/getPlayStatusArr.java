@@ -12,26 +12,24 @@ import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Optional;
 
 import name.hergeth.dlna.api.StringPlaylist;
+import name.hergeth.dlna.api.StringPlaylistArr;
 import name.hergeth.dlna.core.DLNACtrl;
 import name.hergeth.dlna.core.PlayJob;
 
 @Path("/pstat")
 @Produces(MediaType.APPLICATION_JSON)
-public class getPlayStatus extends ResLogger {
+public class getPlayStatusArr extends ResLogger {
 	private final DLNACtrl dlnac;
 	private final AtomicLong counter;
 
-	public getPlayStatus(DLNACtrl c) {
+	public getPlayStatusArr(DLNACtrl c) {
 		dlnac = c;
 		this.counter = new AtomicLong();
 	}
 
 	@GET
 	@Timed
-	public StringPlaylist status(@QueryParam("rend") String r) {
-
-		PlayJob pj = dlnac.getJob(r);
-
-		return new StringPlaylist(counter.incrementAndGet(), pj);
+	public StringPlaylistArr status() {
+		return new StringPlaylistArr(counter.incrementAndGet(), dlnac.getJobs());
 	}
 }

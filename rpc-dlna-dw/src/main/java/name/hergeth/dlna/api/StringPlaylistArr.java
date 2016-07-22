@@ -4,16 +4,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import name.hergeth.dlna.core.PlayJob;
 
-public class StringPlaylist {
+public class StringPlaylistArr {
 	private long id;
 
-	private PlayJob content;
+	private PlayJob content[];
 
-	public StringPlaylist() {
+	public StringPlaylistArr() {
 		// Jackson deserialization
 	}
 
-	public StringPlaylist(long id, PlayJob content) {
+	public StringPlaylistArr(long id, PlayJob[] content) {
 		this.id = id;
 		this.content = content;
 	}
@@ -24,7 +24,7 @@ public class StringPlaylist {
 	}
 
 	@JsonProperty
-	public PlayJob getContent() {
+	public PlayJob[] getContent() {
 		return content;
 	}
 }

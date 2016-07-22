@@ -1,13 +1,12 @@
 package name.hergeth.dlna.core;
 
+import java.io.File;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 
@@ -38,6 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.dropwizard.lifecycle.Managed;
+import name.hergeth.dlna.DLNAApplication;
 
 @SuppressWarnings("rawtypes")
 public class DLNACtrl implements Managed{
@@ -52,14 +52,30 @@ public class DLNACtrl implements Managed{
 	UDAServiceType typeRenderer = null;
 
 	final long PICTIME = 100 * 1000;
-	public DLNACtrlPlaySimple pCtrl = null;
+//	public DLNACtrlPlaySimple pCtrl = null;
 	private Map<String, DLNACtrlPlaySimple> mapPCtrl = new HashMap<>();	
 	
 
 	public DLNACtrl(ExecutorService esrv) {
 		super();
 		eSrvc = esrv;
-		pCtrl = new DLNACtrlPlaySimple(this, eSrvc);
+//		pCtrl = new DLNACtrlPlaySimple(this, eSrvc);
+		String savDir = DLNAApplication.Config().getDefaultSavePath();
+		String[] savs = new File(savDir).list( (File d, String f)->{
+			return f.endsWith(".json");
+		});
+		if(savs == null || savs.length == 0)
+			jlog.info("No save files found.");
+		else{
+			for(String f : savs ){
+				jlog.info("Found save file: " + savDir + "/" + f);
+				PlayJob p = PlayJob.read(savDir+"/"+f);
+				DLNACtrlPlaySimple dc = new DLNACtrlPlaySimple(this, esrv);
+				dc.setJob(p);
+				mapPCtrl.put(p.getScreen(), dc);
+//				dc.startPlayThread(p);
+			}
+		}
 	}
 
 
@@ -75,16 +91,21 @@ public class DLNACtrl implements Managed{
 		return registry;
 	}
 
-	public PlayJob getJob() {
-		return pCtrl.getJob();
-	}
-
 	public PlayJob getJob(String renderer) {
 		DLNACtrlPlaySimple p = mapPCtrl.get(renderer);
 		if(p != null)
 			return p.getJob();
 		else
 			return null;
+	}
+
+	public PlayJob[] getJobs() {
+		PlayJob[] par = new PlayJob[mapPCtrl.size()];
+		int i = 0;
+		for(DLNACtrlPlaySimple p : mapPCtrl.values()){
+			par[i++] = p.getJob();
+		}
+		return par;
 	}
 
 	
@@ -110,13 +131,17 @@ public class DLNACtrl implements Managed{
 		typeRenderer = new UDAServiceType("AVTransport");
 		typeContent = new UDAServiceType("ContentDirectory");
 		searchUDAServiceType(null);
+
+		for( DLNACtrlPlaySimple dc : mapPCtrl.values()){
+			dc.startPlayThread();
+		}
 	}
 
 	@Override
 	public void stop() throws Exception {
 		stopCling();
 		
-		pCtrl.end();
+//		pCtrl.end();
 		ctrlPoint = null;
 		
 		for(DLNACtrlPlaySimple p : mapPCtrl.values()){
@@ -451,24 +476,16 @@ public class DLNACtrl implements Managed{
 		return res.get();
 	}
 
-	public void jumpForward(String r) {
+	public void jumpForward(String r, int n) {
 		DLNACtrlPlaySimple p = mapPCtrl.get(r);
 		if(p != null)
-			p.jumpForward();
-		else
-			pCtrl.jumpForward();
-				
+			p.jumpForward(n);
 	}
 
-	public void jumpBack() {
-		pCtrl.jumpBack();
-	}
-	public void jumpBack(String r) {
+	public void jumpBack(String r, int n) {
 		DLNACtrlPlaySimple p = mapPCtrl.get(r);
 		if(p != null)
-			p.jumpBack();
-		else
-			pCtrl.jumpBack();
+			p.jumpBack(n);
 	}
 
 
@@ -476,8 +493,6 @@ public class DLNACtrl implements Managed{
 		DLNACtrlPlaySimple p = mapPCtrl.get(r);
 		if(p != null)
 			p.stop();
-		else
-			pCtrl.stop();
 	}
 
 
@@ -485,8 +500,6 @@ public class DLNACtrl implements Managed{
 		DLNACtrlPlaySimple p = mapPCtrl.get(r);
 		if(p != null)
 			p.play();
-		else
-			pCtrl.play();
 	}
 
 
@@ -558,12 +571,11 @@ public class DLNACtrl implements Managed{
 		}
 		
 		DLNACtrlPlaySimple p = mapPCtrl.get(job.getScreen());
-		if(p != null)
-			p.startPlayThread();
-		else{
-			mapPCtrl.put(job.getScreen(), new DLNACtrlPlaySimple(this, eSrvc));
-			
+		if(p == null){
+			p = new DLNACtrlPlaySimple(this, eSrvc);
+			mapPCtrl.put(job.getScreen(), p);
 		}
+		p.startPlayThread(job);
 	}
 
 }

@@ -16,10 +16,15 @@ import name.hergeth.dlna.resources.getRenderer;
 import name.hergeth.dlna.resources.getServer;
 
 public class DLNAApplication extends Application<DLNAConfiguration> {
+	static private DLNAConfiguration config = null;
 	private DLNACtrl dlnac;
 
 	public static void main(String[] args) throws Exception {
 		new DLNAApplication().run(args);
+	}
+	
+	public static DLNAConfiguration Config(){
+		return config;
 	}
 
 	@Override
@@ -34,6 +39,7 @@ public class DLNAApplication extends Application<DLNAConfiguration> {
 
 	@Override
 	public void run(DLNAConfiguration configuration, Environment environment) {
+		config = configuration;
 
 		ExecutorServiceBuilder eb = environment.lifecycle().executorService(getName());
 		ExecutorService esrv = eb.build();
