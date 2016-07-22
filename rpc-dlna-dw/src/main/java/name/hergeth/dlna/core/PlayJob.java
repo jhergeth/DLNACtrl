@@ -116,7 +116,7 @@ public class PlayJob {
 	}
 
 	public void jumpForward(int s) {
-		step = s+1;
+		step = s;
 		restTime = 0;
 	}
 
