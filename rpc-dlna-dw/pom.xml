@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>hergeth</groupId>
 	<artifactId>rpc-dlna-dw</artifactId>
-	<version>0.3.12-SNAPSHOT</version>
+	<version>0.3.17-SNAPSHOT</version>
 	<name>rpc-dlna-dw</name>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

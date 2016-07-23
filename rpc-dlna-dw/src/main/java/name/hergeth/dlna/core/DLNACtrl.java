@@ -60,6 +60,32 @@ public class DLNACtrl implements Managed{
 		super();
 		eSrvc = esrv;
 //		pCtrl = new DLNACtrlPlaySimple(this, eSrvc);
+	}
+
+	
+	@Override
+	public void start() throws Exception {
+		// UPnP discovery is asynchronous, we need a callback
+		RegistryListener listener = new DLNAListener(this);
+
+		// This will create necessary network resources for UPnP right away
+		jlog.info("Starting Cling...version: " + getVersion());
+		upnpService = new UpnpServiceImpl(listener);
+		ctrlPoint = upnpService.getControlPoint();
+		registry = upnpService.getRegistry();
+
+		jlog.info("Waiting 1 second...");
+
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+		}
+		// Send a search message to all devices, search for MediaServer, they
+		// should respond soon
+		typeRenderer = new UDAServiceType("AVTransport");
+		typeContent = new UDAServiceType("ContentDirectory");
+		searchUDAServiceType(null);
+
 		String savDir = DLNAApplication.Config().getDefaultSavePath();
 		String[] savs = new File(savDir).list( (File d, String f)->{
 			return f.endsWith(".json");
@@ -70,13 +96,27 @@ public class DLNACtrl implements Managed{
 			for(String f : savs ){
 				jlog.info("Found save file: " + savDir + "/" + f);
 				PlayJob p = PlayJob.read(savDir+"/"+f);
-				DLNACtrlPlaySimple dc = new DLNACtrlPlaySimple(this, esrv);
+				DLNACtrlPlaySimple dc = new DLNACtrlPlaySimple(this, eSrvc);
 				dc.setJob(p);
 				mapPCtrl.put(p.getScreen(), dc);
-//				dc.startPlayThread(p);
+				dc.startPlayThread(p);
 			}
 		}
 	}
+
+	@Override
+	public void stop() throws Exception {
+		stopCling();
+		
+//		pCtrl.end();
+		ctrlPoint = null;
+		
+		for(DLNACtrlPlaySimple p : mapPCtrl.values()){
+			p.end();
+		}
+		mapPCtrl.clear();
+	}
+
 
 
 	public String getVersion() {
@@ -109,48 +149,6 @@ public class DLNACtrl implements Managed{
 	}
 
 	
-	@Override
-	public void start() throws Exception {
-		// UPnP discovery is asynchronous, we need a callback
-		RegistryListener listener = new DLNAListener(this);
-
-		// This will create necessary network resources for UPnP right away
-		jlog.info("Starting Cling...version: " + getVersion());
-		upnpService = new UpnpServiceImpl(listener);
-		ctrlPoint = upnpService.getControlPoint();
-		registry = upnpService.getRegistry();
-
-		jlog.info("Waiting 1 second...");
-
-		try {
-			Thread.sleep(1000);
-		} catch (InterruptedException e) {
-		}
-		// Send a search message to all devices, search for MediaServer, they
-		// should respond soon
-		typeRenderer = new UDAServiceType("AVTransport");
-		typeContent = new UDAServiceType("ContentDirectory");
-		searchUDAServiceType(null);
-
-		for( DLNACtrlPlaySimple dc : mapPCtrl.values()){
-			dc.startPlayThread();
-		}
-	}
-
-	@Override
-	public void stop() throws Exception {
-		stopCling();
-		
-//		pCtrl.end();
-		ctrlPoint = null;
-		
-		for(DLNACtrlPlaySimple p : mapPCtrl.values()){
-			p.end();
-		}
-		mapPCtrl.clear();
-	}
-
-
 	private void stopCling() {
 		// Release all resources and advertise BYEBYE to other UPnP devices
 		jlog.info("Stopping Cling...");
@@ -574,6 +572,7 @@ public class DLNACtrl implements Managed{
 		if(p == null){
 			p = new DLNACtrlPlaySimple(this, eSrvc);
 			mapPCtrl.put(job.getScreen(), p);
+			jlog.warn("Added DLNACtrlPlaySimple for " + job.getScreen());
 		}
 		p.startPlayThread(job);
 	}

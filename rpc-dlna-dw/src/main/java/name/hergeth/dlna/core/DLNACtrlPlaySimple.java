@@ -58,7 +58,7 @@ public class DLNACtrlPlaySimple {
 			this.job = job;
 		else {
 			newJob = job;
-			job.setRestTime(0);
+			this.job.setRestTime(0);
 		}
 		status = s.idle;
 	}
@@ -110,6 +110,7 @@ public class DLNACtrlPlaySimple {
 			setJob(job);
 	
 			startPlayThread();
+			jlog.info("Starting PlayThread for renderer " + job.getScreen());
 		} else {
 			jlog.info("Rendering is already running, attempting to change playlist.");
 			setJob(job);
@@ -117,10 +118,12 @@ public class DLNACtrlPlaySimple {
 	}
 
 	public void startPlayThread() {
+		jlog.info("Preparing thread submit call for renderer "+job.getScreen());
 		waitForPlay = execPlay.submit(() -> {
-			jlog.info("Starting play job...");
+			jlog.info("Starting play job for renderer "+job.getScreen());
 			while (!execPlay.isShutdown()) {
 				try {
+					jlog.info("Will call doPlay for renderer "+job.getScreen());
 					doPlay();
 				} catch (Exception e) {
 					// TODO Auto-generated catch block
@@ -183,8 +186,7 @@ public class DLNACtrlPlaySimple {
 					job.setStatus("media directory mising");
 				}
 
-				dirsize = ctrl.getDirSize(theSource, job.getPlaylist());
-				if ((theScreen == null || theSource == null || dirsize == 0)) {
+				if (theScreen == null || theSource == null) {
 
 					if (cnt % 10 == 0) {
 						jlog.info("Searching UPNP ...");
@@ -212,6 +214,12 @@ public class DLNACtrlPlaySimple {
 
 			} while (true);
 
+			dirsize = ctrl.getDirSize(theSource, job.getPlaylist());
+			if( dirsize == 0 ){
+				job.setStatus("stop");
+				status = s.idle;
+				return;
+			}
 			job.setListLength(dirsize);
 			job.setItemNo(m % dirsize);
 			m = job.getItemNo();

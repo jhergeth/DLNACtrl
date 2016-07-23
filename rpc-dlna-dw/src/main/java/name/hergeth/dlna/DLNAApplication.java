@@ -43,6 +43,8 @@ public class DLNAApplication extends Application<DLNAConfiguration> {
 		config = configuration;
 
 		ExecutorServiceBuilder eb = environment.lifecycle().executorService(getName());
+		eb.minThreads(8);
+//		eb.maxThreads(16);
 		ExecutorService esrv = eb.build();
 
 		dlnac = new DLNACtrl(esrv);
