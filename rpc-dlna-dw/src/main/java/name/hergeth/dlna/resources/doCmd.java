@@ -31,14 +31,18 @@ public class doCmd extends ResLogger {
 
 	@GET
 	@Timed
-	public SimpleResult cmd(@QueryParam("do") String cm, @QueryParam("rend") Optional<String> r, @QueryParam("no") Optional<Integer> n) {
+	public SimpleResult cmd(@QueryParam("do") String cm, 
+							@QueryParam("rend") Optional<String> r, 
+							@QueryParam("no") Optional<Integer> n,
+							@QueryParam("name") Optional<String> na) {
+		
 		jlog.info("Got cmd: " + cm + " rend=" + r + " n="+n);
 		switch (cm) {
 		case "init":
 			return new SimpleResult(counter.incrementAndGet(), dlnac.init() ? "yes" : "no");
 		case "jump":
-			final Integer val = n.or(1);
-			final String rend = r.or(""); 
+			Integer val = n.or(1);
+			String rend = r.or(""); 
 
 			if (rend.length() > 0 && val > 0)
 				dlnac.jumpForward(rend, val);
@@ -46,7 +50,15 @@ public class doCmd extends ResLogger {
 				dlnac.jumpBack(rend, -val);
 
 			return new SimpleResult(counter.incrementAndGet(), "Jumping " + val + " steps.");
+		case "save":
+			val = n.or(1);
+			rend = r.or("");
+			String name = na.or("null");
+
+			jlog.info("Saving to "+val+" : " + name);
+			
+			return new SimpleResult(counter.incrementAndGet(), "Saving to " + val + ": " + name);
 		}
-		throw new WebApplicationException("Unknown parameter value in 'do'.");
+		throw new WebApplicationException("Unknown command in 'do':" + cm);
 	}
 }
