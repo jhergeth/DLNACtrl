@@ -14,7 +14,7 @@ import name.hergeth.dlna.DLNAApplication;
 
 public class DLNACtrlPlaySimple {
 	private enum s {
-		running, idle, starting
+		idle, getDevices, waitForDevices, sendItem, sleep, nextItem, running
 	};
 	public ExecutorService execPlay;
 	private Future<?> waitForPlay = null;
@@ -24,6 +24,13 @@ public class DLNACtrlPlaySimple {
 	private DLNACtrl ctrl = null;
 	private s status = s.idle;
 	private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
+	
+	private Service sm_theScreen = null;
+	private Service sm_theSource = null;
+	private int sm_dirsize = 0;
+	private int sm_itemNo = 0;
+	private int sm_cnt = 0;
+
 
 	public DLNACtrlPlaySimple(DLNACtrl c, ExecutorService esrv) {
 		execPlay = esrv;
@@ -60,7 +67,6 @@ public class DLNACtrlPlaySimple {
 			newJob = job;
 			this.job.setRestTime(0);
 		}
-		status = s.idle;
 	}
 
 	public PlayJob getJob() {
@@ -68,19 +74,19 @@ public class DLNACtrlPlaySimple {
 	}
 
 	public void jumpForward(int n) {
-		if (job.checkJob() && status != s.idle) {
+		if (job.checkJob() && isRunning()) {
 			job.jumpForward(n);
 		}
 	}
 
 	public void jumpBack(int n) {
-		if (job.checkJob() && status != s.idle) {
+		if (job.checkJob() && isRunning()) {
 			job.jumpBack(n);
 		}
 	}
 
 	public void stop() {
-		if (job.checkJob() && status != s.idle) {
+		if (job.checkJob() && isRunning()) {
 			job.setRestTime(0);
 		} else {
 			job = null;
@@ -89,13 +95,13 @@ public class DLNACtrlPlaySimple {
 	}
 
 	public void play() {
-		if (job.checkJob() && status != s.idle) {
+		if (job.checkJob() && isRunning()) {
 			job.setRestTime(job.getTotalTime());
 		}
 	}
 
 	public void restart(String devName) {
-		if (job != null && status != s.idle) {
+		if (job != null && isRunning()) {
 			int t = job.getTotalTime() - job.getRestTime();
 			job.setRestTime(t > 0 ? t : 0);
 		}
@@ -146,6 +152,113 @@ public class DLNACtrlPlaySimple {
 		});
 	}
 
+/*	
+	public void startPlayThread() {
+		status = s.getDevices;
+		jlog.info("Preparing thread submit call for renderer "+job.getScreen());
+		while (!execPlay.isShutdown()) {
+			jlog.info("Looping through job for renderer "+job.getScreen()+" status:"+status);
+			waitForPlay = execPlay.submit(this);
+			try {
+				waitForPlay.get();
+			} catch (InterruptedException | ExecutionException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	@Override
+	public void run(){
+		try {
+			switch( status){
+				case idle:
+					doIdle();
+				break;
+				case getDevices:
+					doGetDevices();
+				break;
+				case waitForDevices :
+					doWaitForDevices();
+				break;
+				case sendItem:
+					doSendItem();
+				break;
+				case sleep:
+					doSleep();
+				break;
+				case nextItem:
+					doNextItem();
+				break;
+			}	
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			jlog.info("Play aborted due to exception.");
+			stop();
+		}
+	}
+	
+	private void doIdle(){
+		jlog.info("idle loop....");
+
+	}
+
+	private void doGetDevices(){
+
+	}
+
+	private void doWaitForDevices(){
+
+	}
+
+	private void doSendItem(){
+
+	}
+
+	private void doSleep(){
+
+	}
+
+	private void doNextItem(){
+
+	}
+
+	private void startTimer(){
+		
+	}
+	}
+	
+	
+				
+				() -> {
+					jlog.info("Starting play job for renderer "+job.getScreen());
+			while (!execPlay.isShutdown()) {
+				try {
+					jlog.info("Will call doPlay for renderer "+job.getScreen());
+					doPlay();
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+					jlog.info("Play aborted due to exception.");
+					stop();
+				}
+				if ((!isRunning()) || (getJob() == null )) {
+					try {
+						execPlay.wait(1000);
+					} catch (Exception e) {
+					}
+					jlog.info("idle loop....");
+				}
+				else{
+					jlog.info("Play rollover....");
+				}
+			}
+			waitForPlay = null;
+		});
+	}
+*/
+	
 	private long timeToLong(String s) {
 		long result = 0;
 		String[] parts = s.split("[:.]");
@@ -166,27 +279,23 @@ public class DLNACtrlPlaySimple {
 
 		jlog.info("Starting rendering of playlist " + job.getPlaylist());
 
-		Service theScreen = null;
-		Service theSource = null;
-		int dirsize = 0;
-		int m = job.itemNo;
 		do {		// loop through all items in the playlist
 
 			int cnt = 0;
 			do { // get all needed devices
-				theScreen = ctrl.findRenderer(job.getScreen()); // find a renderer
-				if (theScreen == null) {
+				sm_theScreen = ctrl.findRenderer(job.getScreen()); // find a renderer
+				if (sm_theScreen == null) {
 					jlog.warn("No rendering service found!");
 					job.setStatus("renderer mising");
 				}
 
-				theSource = ctrl.findVault(job.getServer()); // find media vault
-				if (theSource == null) {
+				sm_theSource = ctrl.findVault(job.getServer()); // find media vault
+				if (sm_theSource == null) {
 					jlog.warn("No media directory found!");
 					job.setStatus("media directory mising");
 				}
 
-				if (theScreen == null || theSource == null) {
+				if (sm_theScreen == null || sm_theSource == null) {
 
 					if (cnt % 10 == 0) {
 						jlog.info("Searching UPNP ...");
@@ -200,7 +309,7 @@ public class DLNACtrlPlaySimple {
 					if (newJob != null) {	// oh´, there is a new playjob, lets do that
 						job = newJob;
 						newJob = null;
-						m = 1;
+						job.setItemNo(0);
 					}
 					if (job.hasStatus("stop")) {
 						status = s.idle;	// we are done here
@@ -214,16 +323,16 @@ public class DLNACtrlPlaySimple {
 
 			} while (true);
 
-			dirsize = ctrl.getDirSize(theSource, job.getPlaylist());
-			if( dirsize == 0 ){
+			sm_dirsize = ctrl.getDirSize(sm_theSource, job.getPlaylist());
+			if( sm_dirsize == 0 ){
 				job.setStatus("stop");
 				status = s.idle;
 				return;
 			}
-			job.setListLength(dirsize);
-			job.setItemNo(m % dirsize);
-			m = job.getItemNo();
-			Item item = ctrl.getItemFromServer(theSource, job.getPlaylist(), m);
+			job.setListLength(sm_dirsize);
+			job.setItemNo(sm_itemNo % sm_dirsize);
+			sm_itemNo = job.getItemNo();
+			Item item = ctrl.getItemFromServer(sm_theSource, job.getPlaylist(), sm_itemNo);
 			jlog.info("Rendering service and media diretory and item found!");
 			job.setItemTitle(item.getTitle());
 			job.setItemPath(item.getFirstResource().getValue());
@@ -232,7 +341,7 @@ public class DLNACtrlPlaySimple {
 
 			status = s.running;
 			job.setStatus("startPlay");
-			playItemOnScreen(theScreen, item, job.getPictTime());
+			playItemOnScreen(sm_theScreen, item, job.getPictTime());
 
 			if (execPlay.isShutdown())
 				return;				// the whole thread is shutting down, .....
@@ -244,25 +353,28 @@ public class DLNACtrlPlaySimple {
 			if (newJob != null) {	// change of plans, new playlist has arrived
 				job = newJob;
 				newJob = null;
-				m = 0;
+				job.setItemNo(0);
 			}
+
 			if (job.hasStatus("medium finished")) {
-				m += job.step;
+				sm_itemNo = job.getItemNo();
+				sm_itemNo += job.step;
 				job.jumpClear();
-				if ( m < 0) {
-					m += dirsize;
+				if ( sm_itemNo < 0) {
+					sm_itemNo += sm_dirsize;
 				}
-				if( m >= dirsize){
-					m -= dirsize;
+				if( sm_itemNo >= sm_dirsize){
+					sm_itemNo -= sm_dirsize;
 				}
+				
+				job.setItemNo(sm_itemNo);
 			} else { // something went wrong ....
 				// Broadcast a search message for all devices
 				ctrl.sendSearch();
 			}
 
-			job.setItemNo(m);
 
-		} while (m <= dirsize);
+		} while (sm_itemNo <= sm_dirsize);
 		
 		job.setItemNo(0); //point to start of list.
 
@@ -317,6 +429,7 @@ public class DLNACtrlPlaySimple {
 		job.setStatus("medium finished");
 		job.setRestTime(0);
 	}
-	
+
+
 
 }
