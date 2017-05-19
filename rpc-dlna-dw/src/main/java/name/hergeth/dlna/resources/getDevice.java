@@ -3,8 +3,6 @@ package name.hergeth.dlna.resources;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.fourthline.cling.model.meta.Device;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import name.hergeth.dlna.api.IdName;
 import name.hergeth.dlna.core.DLNACtrl;

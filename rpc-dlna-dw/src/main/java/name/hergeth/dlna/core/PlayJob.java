@@ -2,13 +2,11 @@ package name.hergeth.dlna.core;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class PlayJob {
@@ -22,16 +20,22 @@ public class PlayJob {
 	String itemTitle;
 	String itemPath;
 	int itemNo;
-	int listLength;
 	int totalTime;
 	int restTime;
 	int pictTime;
+	boolean bNextRandom;
+	boolean bLoop;
 	
 	int step;
 
+	private int itemCount;
+	private int listLength;
+	@JsonIgnore
+	private int[] seq = null;
+
 	public String 	getStatus() {					return status;	}
 	public void 	setStatus(String status) {		this.status = status;	}
-	public String 	getPlaylist() {				return playlist;	}
+	public String 	getPlaylist() {					return playlist;	}
 	public void 	setPlaylist(String medium) {	this.playlist = medium;	}
 	public String 	getScreen() {					return screen;	}
 	public void 	setScreen(String screen) {		this.screen = screen;	}
@@ -39,19 +43,22 @@ public class PlayJob {
 	public void 	setServer(String server) {		this.server = server;	}
 	public String 	getItemTitle() {				return itemTitle;	}
 	public void 	setItemTitle(String itemTitle) {this.itemTitle = itemTitle;	}
-	public String 	getItemPath() {				return itemPath;	}
+	public String 	getItemPath() {					return itemPath;	}
 	public void 	setItemPath(String itemPath) {	this.itemPath = itemPath;	}
 	public int 		getItemNo() {					return itemNo;	}
-	public void 	setItemNo(int item) {			if (item >= 0) { this.itemNo = item; } else {
-						jlog.error("Trying to set negative item number: " + item);	}	}
-	public int 		getListLength() {				return listLength;	}
-	public void 	setListLength(int listLength) {	this.listLength = listLength;	}
-	public int 		getTotalTime() {					return totalTime;	}
+	public void 	clearItemNo() {					this.itemNo = 0; }
+	public int 		getTotalTime() {				return totalTime;	}
 	public void 	setTotalTime(int totalTime) {	this.totalTime = totalTime;	}
 	public int 		getRestTime() {					return restTime;	}
 	public void 	setRestTime(int restTime) {		this.restTime = restTime;	}
 	public int 		getPictTime() {					return pictTime;	}
 	public void 	setPictTime(int pictTime) {		this.pictTime = pictTime;	}
+	public boolean 	isNextRandom() {				return bNextRandom;		}
+	public void 	setNextRandom(boolean bNextRandom) {	this.bNextRandom = bNextRandom;	}
+	public boolean 	isLoop() {						return bLoop;	}
+	public void 	setLoop(boolean bLoop) {		this.bLoop = bLoop;		}
+	public int 		getListLength() {				return listLength;	}
+	public void		setListLength(int listLength) {	this.listLength = listLength;	}
 
 	
 	public PlayJob(String status, String playlist, String screen, String server, int item, int total, int rest,
@@ -65,26 +72,17 @@ public class PlayJob {
 		this.restTime = rest;
 		this.itemNo = item;
 		this.pictTime = picTime;
+		bNextRandom = false;
 		step = 1;
+		itemCount = 0;
 	}
 
 	public PlayJob() {
-		status = "idle";
-		playlist = screen = server = "";
-		itemNo = totalTime = restTime = 0;
-		step = 1;
+		this("idle", "", "", "", 0, 0, 0, 0);
 	}
 
 	public PlayJob(PlayJob o) {
-		this.status = o.status;
-		this.playlist = o.playlist;
-		this.screen = o.screen;
-		this.server = o.server;
-		this.totalTime = o.totalTime;
-		this.restTime = o.restTime;
-		this.itemNo = o.itemNo;
-		this.pictTime = o.pictTime;
-		step = 1;
+		this(o.status, o.playlist, o.screen, o.server, o.itemNo, o.totalTime, o.restTime, o.pictTime);
 	}
 	
 	public static PlayJob read(String f){
@@ -142,8 +140,61 @@ public class PlayJob {
 			jlog.warn("Empty playlist!");
 			return false;
 		}
-
 		return true;
 	}
+	
+	public int nextItem(int dirSize){
+		
+		itemCount += step;
+		itemNo += step;
+		listLength = dirSize;
 
+		if(isNextRandom() && listLength > 0){
+			if((seq == null || seq.length != listLength)		// mo or wrong seq array
+					|| (itemCount >= listLength)){				// looped throu all items
+				jlog.info("NextItem: generating new random sequence:"+itemNo+" ("+itemCount+"/"+dirSize+")");
+				seq = new int[listLength];
+				for(int i = 0; i < listLength; i++)
+					seq[i] = -1;
+				
+				for(int i = 0; i < listLength; i++){
+					int j = (int)(Math.random()*listLength);
+					while(seq[j] >= 0 ){
+						j = (j+1)%listLength;
+					}
+					seq[j] = i;
+				}
+				itemCount = 0;
+			}
+			if ( itemCount < 0) {
+				itemCount += dirSize;
+			}
+			if( itemCount >= dirSize){
+				itemCount -= dirSize;
+			}
+			itemNo = seq[itemCount];
+			jlog.info("NextItem: selected via random seq:"+itemNo+" ("+itemCount+"/"+dirSize+") step="+step);
+		}
+		else{
+			jlog.info("NextItem: stepped to:"+itemNo+" ("+itemCount+"/"+dirSize+") step="+step);
+		}
+
+		if ( itemNo < 0) {
+			itemNo += dirSize;
+		}
+		if( itemNo >= dirSize){
+			itemNo -= dirSize;
+		}
+
+		step = 1;
+	
+
+		jlog.info("NextItem: itemNo=:"+itemNo+" ("+itemCount+"/"+dirSize+")");
+		if(!isLoop() && itemCount > dirSize){
+			jlog.info("NextItem: end of list reached:");
+			return -1;
+		}
+		else
+			return itemNo;
+	}
 }

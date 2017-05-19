@@ -18,6 +18,7 @@ public class DLNACtrlPlaySimple {
 	};
 	public ExecutorService execPlay;
 	private Future<?> waitForPlay = null;
+	private Thread myThread = null;
 
 	private PlayJob newJob = null;
 	private PlayJob job = null;
@@ -25,10 +26,12 @@ public class DLNACtrlPlaySimple {
 	private s status = s.idle;
 	private Logger jlog = LoggerFactory.getLogger("name.hergeth.dlna.core");
 	
+	@SuppressWarnings("rawtypes") 
 	private Service sm_theScreen = null;
+	@SuppressWarnings("rawtypes") 
 	private Service sm_theSource = null;
 	private int sm_dirsize = 0;
-	private int sm_itemNo = 0;
+//	private int sm_itemNo = 0;
 	private int sm_cnt = 0;
 
 
@@ -61,8 +64,10 @@ public class DLNACtrlPlaySimple {
 	}
 
 	public void setJob(PlayJob job) {
-		if (status == s.idle)
+		if (status == s.idle){
 			this.job = job;
+			status = s.waitForDevices;
+		}
 		else {
 			newJob = job;
 			this.job.setRestTime(0);
@@ -73,40 +78,56 @@ public class DLNACtrlPlaySimple {
 		return job;
 	}
 
+	public void setLoop(boolean b){
+		if(isValidJob())
+			job.setLoop(b);
+	
+	}
+	
+	public void setRandom(boolean b){
+		if(isValidJob())
+			job.setNextRandom(b);
+	
+	}
+
 	public void jumpForward(int n) {
-		if (job.checkJob() && isRunning()) {
+		if(isValidJob() && isRunning()) {
 			job.jumpForward(n);
 		}
 	}
 
 	public void jumpBack(int n) {
-		if (job.checkJob() && isRunning()) {
+		if(isValidJob() && isRunning()) {
 			job.jumpBack(n);
 		}
 	}
 
 	public void stop() {
-		if (job.checkJob() && isRunning()) {
-			job.setRestTime(0);
-		} else {
-			job = null;
-			status = s.idle;
+		if(isValidJob()){
+			if( isRunning()) {
+				job.setRestTime(0);
+			}
+			else {
+				job = null;
+				status = s.idle;
+			}
 		}
 	}
 
 	public void play() {
-		if (job.checkJob() && isRunning()) {
+		if(isValidJob() && isRunning()) {
 			job.setRestTime(job.getTotalTime());
 		}
 	}
 
-	public void restart(String devName) {
-		if (job != null && isRunning()) {
+/*	public void restart(String devName) {
+		if (isValidJob()  && isRunning()) {
 			int t = job.getTotalTime() - job.getRestTime();
 			job.setRestTime(t > 0 ? t : 0);
 		}
 	}
 
+*/	
 	public boolean isRunning() {
 		return status != s.idle;
 	}
@@ -124,140 +145,42 @@ public class DLNACtrlPlaySimple {
 	}
 
 	public void startPlayThread() {
+		if (waitForPlay != null && !waitForPlay.isDone()) {
+			jlog.warn("Trying to start play thread for renderer "+job.getScreen());
+			return;
+		}
 		jlog.info("Preparing thread submit call for renderer "+job.getScreen());
+		status = s.waitForDevices;
 		waitForPlay = execPlay.submit(() -> {
 			jlog.info("Starting play job for renderer "+job.getScreen());
 			while (!execPlay.isShutdown()) {
-				try {
-					jlog.info("Will call doPlay for renderer "+job.getScreen());
-					doPlay();
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-					jlog.info("Play aborted due to exception.");
-					stop();
-				}
+				myThread = Thread.currentThread();
 				if ((!isRunning()) || (getJob() == null )) {
 					try {
-						execPlay.wait(1000);
+						execPlay.wait(100);
 					} catch (Exception e) {
 					}
-					jlog.info("idle loop....");
 				}
 				else{
-					jlog.info("Play rollover....");
+					try {
+						jlog.info("Will call doPlay for renderer "+job.getScreen());
+						doPlay();
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+						jlog.info("Play aborted due to exception.");
+						stop();
+					}
 				}
 			}
+			myThread = null;
 			waitForPlay = null;
 		});
 	}
 
-/*	
-	public void startPlayThread() {
-		status = s.getDevices;
-		jlog.info("Preparing thread submit call for renderer "+job.getScreen());
-		while (!execPlay.isShutdown()) {
-			jlog.info("Looping through job for renderer "+job.getScreen()+" status:"+status);
-			waitForPlay = execPlay.submit(this);
-			try {
-				waitForPlay.get();
-			} catch (InterruptedException | ExecutionException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
+	private boolean isValidJob(){
+		return job != null && job.checkJob();
 	}
-	
-	@Override
-	public void run(){
-		try {
-			switch( status){
-				case idle:
-					doIdle();
-				break;
-				case getDevices:
-					doGetDevices();
-				break;
-				case waitForDevices :
-					doWaitForDevices();
-				break;
-				case sendItem:
-					doSendItem();
-				break;
-				case sleep:
-					doSleep();
-				break;
-				case nextItem:
-					doNextItem();
-				break;
-			}	
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			jlog.info("Play aborted due to exception.");
-			stop();
-		}
-	}
-	
-	private void doIdle(){
-		jlog.info("idle loop....");
-
-	}
-
-	private void doGetDevices(){
-
-	}
-
-	private void doWaitForDevices(){
-
-	}
-
-	private void doSendItem(){
-
-	}
-
-	private void doSleep(){
-
-	}
-
-	private void doNextItem(){
-
-	}
-
-	private void startTimer(){
-		
-	}
-	}
-	
-	
-				
-				() -> {
-					jlog.info("Starting play job for renderer "+job.getScreen());
-			while (!execPlay.isShutdown()) {
-				try {
-					jlog.info("Will call doPlay for renderer "+job.getScreen());
-					doPlay();
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-					jlog.info("Play aborted due to exception.");
-					stop();
-				}
-				if ((!isRunning()) || (getJob() == null )) {
-					try {
-						execPlay.wait(1000);
-					} catch (Exception e) {
-					}
-					jlog.info("idle loop....");
-				}
-				else{
-					jlog.info("Play rollover....");
-				}
-			}
-			waitForPlay = null;
-		});
-	}
-*/
 	
 	private long timeToLong(String s) {
 		long result = 0;
@@ -272,16 +195,17 @@ public class DLNACtrlPlaySimple {
 		return result;
 	}
 
-	@SuppressWarnings("rawtypes")
 	private void doPlay() throws InterruptedException, ExecutionException {
+		int currItem = 0;
+
 		if (job == null)
 			return;
 
 		jlog.info("Starting rendering of playlist " + job.getPlaylist());
 
 		do {		// loop through all items in the playlist
-
 			int cnt = 0;
+
 			do { // get all needed devices
 				sm_theScreen = ctrl.findRenderer(job.getScreen()); // find a renderer
 				if (sm_theScreen == null) {
@@ -305,11 +229,18 @@ public class DLNACtrlPlaySimple {
 						return;				// the whole thread is shutting down, .....
 
 					jlog.info("Waiting 2 seconds for devices...");
-					Thread.sleep(2000);
+					long ct = java.lang.System.currentTimeMillis();
+					do{
+						try{
+							Thread.sleep(2000);
+						}catch(InterruptedException e){}
+						
+					}while(java.lang.System.currentTimeMillis()-ct < 2000 );
+											
 					if (newJob != null) {	// oh´, there is a new playjob, lets do that
 						job = newJob;
 						newJob = null;
-						job.setItemNo(0);
+						job.clearItemNo();
 					}
 					if (job.hasStatus("stop")) {
 						status = s.idle;	// we are done here
@@ -330,9 +261,7 @@ public class DLNACtrlPlaySimple {
 				return;
 			}
 			job.setListLength(sm_dirsize);
-			job.setItemNo(sm_itemNo % sm_dirsize);
-			sm_itemNo = job.getItemNo();
-			Item item = ctrl.getItemFromServer(sm_theSource, job.getPlaylist(), sm_itemNo);
+			Item item = ctrl.getItemFromServer(sm_theSource, job.getPlaylist(), job.getItemNo());
 			jlog.info("Rendering service and media diretory and item found!");
 			job.setItemTitle(item.getTitle());
 			job.setItemPath(item.getFirstResource().getValue());
@@ -353,30 +282,20 @@ public class DLNACtrlPlaySimple {
 			if (newJob != null) {	// change of plans, new playlist has arrived
 				job = newJob;
 				newJob = null;
-				job.setItemNo(0);
+				job.clearItemNo();
 			}
 
 			if (job.hasStatus("medium finished")) {
-				sm_itemNo = job.getItemNo();
-				sm_itemNo += job.step;
-				job.jumpClear();
-				if ( sm_itemNo < 0) {
-					sm_itemNo += sm_dirsize;
-				}
-				if( sm_itemNo >= sm_dirsize){
-					sm_itemNo -= sm_dirsize;
-				}
-				
-				job.setItemNo(sm_itemNo);
+				currItem = job.nextItem(sm_dirsize);
 			} else { // something went wrong ....
 				// Broadcast a search message for all devices
 				ctrl.sendSearch();
 			}
 
 
-		} while (sm_itemNo <= sm_dirsize);
+		} while (currItem > -1);
 		
-		job.setItemNo(0); //point to start of list.
+		job.clearItemNo(); //point to start of list.
 
 		status = s.idle;
 		jlog.info("Rendering of playlist " + job.getPlaylist() + " finished..");
@@ -387,6 +306,9 @@ public class DLNACtrlPlaySimple {
 		String uri = item.getFirstResource().getValue();
 
 		if (!ctrl.sendURIandPlay(theScreen, item)) {
+			jlog.info("FATAL error during senURIandPlay (" + theScreen.toString() + ", " + item.toString() + ", " + duration + ") aborting playlist.");
+			job.setStatus("medium finished");
+			job.setRestTime(0);
 			return;
 		}
 
@@ -411,25 +333,133 @@ public class DLNACtrlPlaySimple {
 
 			try {
 				job.setRestTime((int) (time - 1000));
-				job.save(DLNAApplication.Config().getDefaultSavePath());
 				Thread.sleep(1000);
 			} catch (InterruptedException e) {
+				jlog.info("playItemOnScreen Interrupted at " + job.getRestTime() + " seconds, media=" + uri);
 			}
 
 			if (job.hasStatus("screen restarted")) {
-				jlog.info("Resend URI after screen restart " + job.getRestTime() + " seconds media=" + uri);
+				jlog.info("Resend URI after screen restart " + job.getRestTime() + " seconds, media=" + uri);
 				if (!ctrl.sendURIandPlay(theScreen, item)) {
 					return;
 				}
 			}
 			job.setStatus("playing");
 			time = job.getRestTime();
-			jlog.info("Waiting " + time / 1000 + "." + time % 1000 + " seconds media=" + uri);
+			jlog.info("Waiting " + time / 1000 + "." + time % 1000 + " seconds, media=" + uri);
 		}
 		job.setStatus("medium finished");
 		job.setRestTime(0);
+		job.save(DLNAApplication.Config().getDefaultSavePath());
 	}
 
+}
 
+
+/*	
+public void startPlayThread() {
+	status = s.getDevices;
+	jlog.info("Preparing thread submit call for renderer "+job.getScreen());
+	while (!execPlay.isShutdown()) {
+		jlog.info("Looping through job for renderer "+job.getScreen()+" status:"+status);
+		waitForPlay = execPlay.submit(this);
+		try {
+			waitForPlay.get();
+		} catch (InterruptedException | ExecutionException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+}
+
+@Override
+public void run(){
+	try {
+		switch( status){
+			case idle:
+				doIdle();
+			break;
+			case getDevices:
+				doGetDevices();
+			break;
+			case waitForDevices :
+				doWaitForDevices();
+			break;
+			case sendItem:
+				doSendItem();
+			break;
+			case sleep:
+				doSleep();
+			break;
+			case nextItem:
+				doNextItem();
+			break;
+		}	
+	} catch (Exception e) {
+		// TODO Auto-generated catch block
+		e.printStackTrace();
+		jlog.info("Play aborted due to exception.");
+		stop();
+	}
+}
+
+private void doIdle(){
+	jlog.info("idle loop....");
 
 }
+
+private void doGetDevices(){
+
+}
+
+private void doWaitForDevices(){
+
+}
+
+private void doSendItem(){
+
+}
+
+private void doSleep(){
+
+}
+
+private void doNextItem(){
+
+}
+
+private void startTimer(){
+	
+}
+}
+
+
+			
+			() -> {
+				jlog.info("Starting play job for renderer "+job.getScreen());
+		while (!execPlay.isShutdown()) {
+			try {
+				jlog.info("Will call doPlay for renderer "+job.getScreen());
+				doPlay();
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				jlog.info("Play aborted due to exception.");
+				stop();
+			}
+			if ((!isRunning()) || (getJob() == null )) {
+				try {
+					execPlay.wait(1000);
+				} catch (Exception e) {
+				}
+				jlog.info("idle loop....");
+			}
+			else{
+				jlog.info("Play rollover....");
+			}
+		}
+		waitForPlay = null;
+	});
+}
+*/
+

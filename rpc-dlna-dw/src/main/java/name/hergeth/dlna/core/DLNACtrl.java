@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 
@@ -54,11 +55,12 @@ public class DLNACtrl implements Managed{
 	final long PICTIME = 100 * 1000;
 //	public DLNACtrlPlaySimple pCtrl = null;
 	private Map<String, DLNACtrlPlaySimple> mapPCtrl = new HashMap<>();	
+	private Map<String, PlayJob> mapPJobs = new HashMap<>();	
 	
 
-	public DLNACtrl(ExecutorService esrv) {
+	public DLNACtrl() {
 		super();
-		eSrvc = esrv;
+		eSrvc = Executors.newFixedThreadPool(5);
 //		pCtrl = new DLNACtrlPlaySimple(this, eSrvc);
 	}
 
@@ -492,13 +494,24 @@ public class DLNACtrl implements Managed{
 		if(p != null)
 			p.stop();
 	}
-
-
-	public void play(String r) {
+	public void startPlay(String r) {
 		DLNACtrlPlaySimple p = mapPCtrl.get(r);
 		if(p != null)
 			p.play();
 	}
+
+	public void setLoop(String r, boolean b) {
+		DLNACtrlPlaySimple p = mapPCtrl.get(r);
+		if(p != null)
+			p.setLoop(b);
+	}
+
+	public void setRandom(String r, boolean b) {
+		DLNACtrlPlaySimple p = mapPCtrl.get(r);
+		if(p != null)
+			p.setRandom(b);
+	}
+
 
 
 	protected boolean sendURIandPlay(Service theScreen, Item item) throws InterruptedException, ExecutionException {
@@ -511,12 +524,15 @@ public class DLNACtrl implements Managed{
 
 		jlog.info("Send media " + uri + " to " + theScreen.getDevice().getDetails().getFriendlyName());
 
-		ActionCallback setAVTransportURIAction = new SetAVTransportURI(theScreen, uri, "NO METADATA") {
+		ActionCallback setAVTransportURIAction = new SetAVTransportURI(theScreen, uri, "") {
 			@Override
 			public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg) {
 				// Something was wrong
-				jlog.warn("Send media " + uri + " to "
-						+ theScreen.getDevice().getDetails().getFriendlyName() + " failed!");
+				jlog.error("Send media " + uri + " to "
+						+ theScreen.getDevice().getDetails().getFriendlyName() + " failed with msg:"+defaultMsg);
+				jlog.error("details are: action=" + invocation.getAction().getName());
+				jlog.error("             ClientInfo=" + invocation.getClientInfo());
+				jlog.error("             op.response=" + operation.getResponseDetails());
 				res.set(true);
 			}
 		};
@@ -551,8 +567,43 @@ public class DLNACtrl implements Managed{
 	 * @param theId
 	 * @param duration
 	 */
-	public void play(String sRenderer, String sDir, String theId, int duration, int no) {
-		play(new PlayJob("starting", theId, sRenderer, sDir, no, duration, duration, duration));
+	public void play(String sRenderer, String sDir, String theId, int duration, int no, boolean bLoop, boolean bRandom) {
+		PlayJob pj = new PlayJob("starting", theId, sRenderer, sDir, no, duration, duration, duration);
+		pj.setNextRandom(bRandom);
+		pj.setLoop(bLoop);
+		play(pj);
+	}
+	public void saveJob(String name, String sRenderer, String sDir, String theId, int duration, int no, boolean bLoop, boolean bRandom) {
+		PlayJob pj = new PlayJob("starting", theId, sRenderer, sDir, no, duration, duration, duration);
+		pj.setNextRandom(bRandom);
+		pj.setLoop(bLoop);
+		saveJob(name, pj);
+	}
+	public void saveJob(String name, String sRenderer){
+		DLNACtrlPlaySimple ctrl = mapPCtrl.get(sRenderer);
+		if( ctrl != null){
+			PlayJob pj = ctrl.getJob();
+			if(pj != null){
+				saveJob(name, pj);
+				return;
+			}
+		}
+
+		jlog.error("Attempting to save playjob: "+name + " for Renderer: "+sRenderer + ", but no job playing at renderer.");
+	}
+	private void saveJob(String name, PlayJob pj){
+		mapPJobs.put(name, pj);
+		jlog.warn("Saved PlayJob " + name + " for " + pj.getScreen());
+	}
+	public void play(String name){
+		PlayJob pj = mapPJobs.get(name);
+		if(pj != null){
+			jlog.warn("Starting saved PlayJob " + name + " for " + pj.getScreen());
+			play(pj);
+		}
+		else{
+			jlog.error("Attempting to start missing saved playjob: " + name);
+		}
 	}
 
 	private void play(PlayJob job) {

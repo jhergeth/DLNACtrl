@@ -9,9 +9,6 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Optional;
 
@@ -40,6 +37,7 @@ public class doCmd extends ResLogger {
 		switch (cm) {
 		case "init":
 			return new SimpleResult(counter.incrementAndGet(), dlnac.init() ? "yes" : "no");
+			
 		case "jump":
 			Integer val = n.or(1);
 			String rend = r.or(""); 
@@ -50,6 +48,7 @@ public class doCmd extends ResLogger {
 				dlnac.jumpBack(rend, -val);
 
 			return new SimpleResult(counter.incrementAndGet(), "Jumping " + val + " steps.");
+			
 		case "save":
 			val = n.or(1);
 			rend = r.or("");

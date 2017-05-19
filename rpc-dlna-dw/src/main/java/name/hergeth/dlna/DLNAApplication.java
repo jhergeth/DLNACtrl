@@ -42,12 +42,12 @@ public class DLNAApplication extends Application<DLNAConfiguration> {
 	public void run(DLNAConfiguration configuration, Environment environment) {
 		config = configuration;
 
-		ExecutorServiceBuilder eb = environment.lifecycle().executorService(getName());
-		eb.minThreads(8);
+//		ExecutorServiceBuilder eb = environment.lifecycle().executorService(getName());
+//		eb.minThreads(8);
 //		eb.maxThreads(16);
-		ExecutorService esrv = eb.build();
+//		ExecutorService esrv = eb.build();
 
-		dlnac = new DLNACtrl(esrv);
+		dlnac = new DLNACtrl();
 		environment.lifecycle().manage(dlnac);
 
 		final TemplateHealthCheck healthCheck = new TemplateHealthCheck("");

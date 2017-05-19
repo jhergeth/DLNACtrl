@@ -27,15 +27,44 @@ public class doPlay extends ResLogger {
 
 	@GET
 	@Timed
-	public SimpleResult play(@QueryParam("dest") String dest, @QueryParam("src") String src,
-			@QueryParam("itm") String itm, @QueryParam("len") int len, @QueryParam("no") Optional<Integer> n
+	public SimpleResult play( 
+			@QueryParam("name") Optional<String> na, 
+			@QueryParam("dest") Optional<String> de, 
+			@QueryParam("src") Optional<String> sr,
+			@QueryParam("itm") Optional<String> it, 
+			@QueryParam("len") Optional<Integer> l, 
+			@QueryParam("no") Optional<Integer> n,
+			@QueryParam("loop") Optional<Boolean> loop,
+			@QueryParam("random") Optional<Boolean> random
+			) {
+		jlog.info("Got play: name="+na
+				+ " dest="+de
+				+ " src="+sr 
+				+ " itm="+it 
+				+ " len="+l
+				+ " no="+n
+				+ " loop="+loop
+				+ " random="+random);
 
-	) {
-		jlog.info("Got play: dest=" + dest + " src=" + src + " itm="+itm + " len="+len+ " no="+n);
+		final String name = na.or("");
+		final String dest = de.or("");
+		final String src = sr.or("");
+		final String itm = it.or("");
+		final Integer no = n.or(0);
+		final Integer len = l.or(0);
+		final Boolean bLoop = loop.or(false);
+		final Boolean bRandom = random.or(false);
 
-		final Integer no = n.or(1);
-
-		dlnac.play(dest, src, itm, len, no);
+		if(na.isPresent()){
+			dlnac.play(name);
+		}
+		else if(de.isPresent() && sr.isPresent() && it.isPresent() && l.isPresent()){
+			dlnac.play(dest, src, itm, len, no, bLoop, bRandom );
+		}
+		else{
+			jlog.error("Not enough parameters in doPlay");
+		}
+		
 		return new SimpleResult(counter.incrementAndGet(), "Play send!");
 	}
 }
